@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-sdlc"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "click>=8.1",
+]
+
+[project.scripts]
+auto-sdlc = "auto_sdlc.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

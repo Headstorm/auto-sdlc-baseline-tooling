@@ -1,0 +1,2 @@
+[console_scripts]
+auto-sdlc = auto_sdlc.cli:cli
