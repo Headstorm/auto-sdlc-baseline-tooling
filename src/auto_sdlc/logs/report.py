@@ -11,19 +11,32 @@ from auto_sdlc.logs.analyzer import (
 from auto_sdlc.logs.scorer import score_session_prompts
 
 
-def build_report(projects_dir):
-    """Parse all session files under projects_dir and return a report dict."""
+def build_report(projects_dir, project_filter=None, since=None):
+    """Parse all session files under projects_dir and return a report dict.
+
+    project_filter: string — only include sessions whose cwd contains this value
+    since: date string YYYY-MM-DD — only include sessions starting on or after this date
+    """
     projects_dir = Path(projects_dir)
     session_files = find_session_files(projects_dir)
 
-    all_session_events = [parse_session_file(f) for f in session_files]
-
     sessions = []
+    filtered_events = []
     all_prompt_scores = []
 
-    for events in all_session_events:
-        token_usage = extract_token_usage(events)
+    for f in session_files:
+        events = parse_session_file(f)
         metadata = extract_session_metadata(events)
+
+        if project_filter and metadata.get("cwd"):
+            if project_filter.lower() not in metadata["cwd"].lower():
+                continue
+        if since and metadata.get("start_timestamp"):
+            if metadata["start_timestamp"][:10] < since:
+                continue
+
+        filtered_events.append(events)
+        token_usage = extract_token_usage(events)
         prompt_scores = score_session_prompts(events)
         all_prompt_scores.extend(s["score"] for s in prompt_scores)
         sessions.append({
@@ -33,7 +46,7 @@ def build_report(projects_dir):
             "prompt_scores": prompt_scores,
         })
 
-    aggregate = aggregate_sessions(all_session_events)
+    aggregate = aggregate_sessions(filtered_events)
     avg_quality = (
         round(sum(all_prompt_scores) / len(all_prompt_scores), 1)
         if all_prompt_scores else None
@@ -42,6 +55,7 @@ def build_report(projects_dir):
     return {
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
         "projects_dir": str(projects_dir),
+        "filters": {"project": project_filter, "since": since},
         "summary": {
             **aggregate,
             "avg_prompt_quality_score": avg_quality,
@@ -50,12 +64,22 @@ def build_report(projects_dir):
     }
 
 
-def run_logs_report(projects_dir, output_path):
+def run_logs_report(projects_dir, output_path, project_filter=None, since=None,
+                    summary_only=False):
     """Entry point called by CLI. Builds and emits the report."""
     default_dir = Path.home() / ".claude" / "projects"
     resolved_dir = Path(projects_dir) if projects_dir else default_dir
 
-    report = build_report(resolved_dir)
+    report = build_report(resolved_dir, project_filter=project_filter, since=since)
+
+    if summary_only:
+        report = {
+            "generated_at": report["generated_at"],
+            "projects_dir": report["projects_dir"],
+            "filters": report["filters"],
+            "summary": report["summary"],
+        }
+
     output = json.dumps(report, indent=2, default=str)
 
     if output_path:
