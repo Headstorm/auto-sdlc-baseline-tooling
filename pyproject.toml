@@ -10,6 +10,15 @@ dependencies = [
     "click>=8.1",
 ]
 
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+dev = [
+    "httpx>=0.27",
+]
+
 [project.scripts]
 auto-sdlc = "auto_sdlc.cli:cli"
 
