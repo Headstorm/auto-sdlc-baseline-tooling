@@ -26,11 +26,17 @@ def test_audit_stub_runs():
     assert "not yet implemented" in result.output
 
 
-def test_logs_command_with_custom_dir(sample_projects_dir):
+def test_logs_command_with_custom_dir(sample_projects_dir, tmp_path):
+    output_file = tmp_path / "report.json"
     runner = CliRunner()
-    result = runner.invoke(cli, ["logs", "--projects-dir", str(sample_projects_dir)])
+    result = runner.invoke(cli, [
+        "logs",
+        "--projects-dir", str(sample_projects_dir),
+        "--output", str(output_file),
+    ])
     assert result.exit_code == 0
-    data = json.loads(result.output)
+    assert output_file.exists()
+    data = json.loads(output_file.read_text())
     assert data["summary"]["total_sessions"] == 1
 
 
