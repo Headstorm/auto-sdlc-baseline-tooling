@@ -1,0 +1,10 @@
+# TODO Items (not exhaustive)
+- [ ] By default we should save to a JSON file, output can specify a path to override default
+- [ ] Create individual-level visualization of main metrics and findings. Spend some time planning out the most relevant metrics and how to visualize them in a way that surfaces insights without overwhelming users with noise. This is critical for adoption and ongoing engagement. This can be as a report, a light dashboard, whatever you're comfortable with.
+- [ ] Individual-level visualization should include breakdown by project (we will need to filter to just the repos relevant to their team). This is in the path of the JSONL log files
+- [ ] Plan out and prototype an approach to mock a full team and demonstrate rollup of individual findings to team level with maturity scoring, metrics, qualitative findings, and visualization for the most important metrics.
+- [ ] Plan out and prototype an approach to exfil the individual-level data and findings to a central location for aggregation and team-level analysis. This will likely involve a combination of local JSONL log files and a simple API, file server upload, or data pipeline to send the data to a central database or analytics platform.
+
+All these areas will require some iteration and experimentation on your part to find the right balance of signal vs noise, actionable insights vs overwhelming data, and individual-level vs team-level findings. Explore and prototype multiple paths for the most critical components like the rollup, which metrics we use and how we visualize them for maturity, anti-patterns, workflows, etc, and the approach to exfiling the data for team-level analysis. This is a critical part of the value proposition for Auto-SDLC and our ability to scale it, so it's worth investing time in getting it right.
+
+If you get stuck, take a look at the -messages CLI command in the other repo to see how I approached workflow extraction from a sliding window analysis of logs. Not to say we need to or should do it the same way, but it may spark some ideas for how to approach the analysis and visualization here.
