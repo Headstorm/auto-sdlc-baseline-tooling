@@ -130,20 +130,30 @@ def team(reports_dir, output, html):
 
 @cli.command()
 @click.option("--reports-dir", default=None,
-              help="Directory to store received reports. Defaults to ~/.auto-sdlc/server/reports/")
+              help="Directory to store received reports. Defaults to $REPORTS_DIR env var or ~/.auto-sdlc/server/reports/")
 @click.option("--host", default="0.0.0.0", show_default=True, help="Host to bind to.")
-@click.option("--port", default=8000, show_default=True, type=int, help="Port to listen on.")
+@click.option("--port", default=None, type=int, help="Port to listen on. Defaults to $PORT env var or 8000.")
 def serve(reports_dir, host, port):
     """Start the central collection server."""
+    import os
     try:
         import uvicorn
     except ImportError:
         raise click.ClickException("Server deps not installed. Run: pip install 'auto-sdlc[server]'")
     from pathlib import Path
     from auto_sdlc.server import create_app
-    resolved = Path(reports_dir) if reports_dir else Path.home() / ".auto-sdlc" / "server" / "reports"
+
+    # Resolve port: CLI arg → $PORT env var → default 8000
+    resolved_port = port or int(os.environ.get("PORT", 8000))
+
+    # Resolve reports dir: CLI arg → $REPORTS_DIR env var → default ~/.auto-sdlc/server/reports/
+    if reports_dir:
+        resolved = Path(reports_dir)
+    else:
+        env_dir = os.environ.get("REPORTS_DIR")
+        resolved = Path(env_dir) if env_dir else Path.home() / ".auto-sdlc" / "server" / "reports"
     resolved.mkdir(parents=True, exist_ok=True)
-    click.echo("Auto-SDLC server starting on http://{}:{}".format(host, port))
+    click.echo("Auto-SDLC server starting on http://{}:{}".format(host, resolved_port))
     click.echo("Storing reports in: {}".format(resolved))
     click.echo("Endpoints:")
     click.echo("  POST /reports      — receive a developer report")
@@ -151,7 +161,7 @@ def serve(reports_dir, host, port):
     click.echo("  GET  /team         — live team JSON report")
     click.echo("  GET  /team/html    — live team HTML dashboard")
     app = create_app(str(resolved))
-    uvicorn.run(app, host=host, port=port)
+    uvicorn.run(app, host=host, port=resolved_port)
 
 
 @cli.command(name="init")

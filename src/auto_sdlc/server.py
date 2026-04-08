@@ -58,46 +58,115 @@ def create_app(reports_dir):
         return {"status": "ok", "reports_dir": str(reports_path)}
 
     @app.get("/", response_class=HTMLResponse)
-    def upload_form():
-        """Self-contained upload form — no CLI needed for developers."""
+    def upload_form(request: Request):
+        """Landing page — CLI-first, upload as fallback."""
+        # Inject the actual server URL into the command
+        server_url = "{}://{}".format(request.url.scheme, request.url.netloc)
+        export_url = "{}/reports".format(server_url)
+
         return """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Auto-SDLC — Submit Your Logs</title>
+  <title>Auto-SDLC — Developer Log Analysis</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fa;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#222}
-    .card{background:white;border-radius:10px;padding:40px 48px;box-shadow:0 2px 12px rgba(0,0,0,.1);max-width:480px;width:100%}
-    h1{margin:0 0 6px 0;font-size:22px}
-    p{color:#666;font-size:14px;margin:0 0 28px 0}
-    label{display:block;font-size:13px;font-weight:600;color:#444;margin-bottom:6px}
-    input[type=email],input[type=file]{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-bottom:18px}
-    input[type=file]{padding:8px 10px;color:#555}
-    button{width:100%;padding:12px;background:#4a90d9;color:white;border:none;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer}
-    button:hover{background:#357abd}
-    .hint{font-size:12px;color:#999;margin-top:20px;line-height:1.6}
-    code{background:#f0f0f0;padding:2px 5px;border-radius:3px;font-size:11px}
+    *{{margin:0;padding:0}}
+    body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fa;color:#222}}
+    .container{{max-width:600px;margin:0 auto;padding:40px 24px}}
+    h1{{font-size:24px;margin-bottom:8px}}
+    .subtitle{{font-size:14px;color:#666;margin-bottom:32px}}
+    .section{{background:white;border-radius:8px;padding:24px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.1)}}
+    .step{{margin-bottom:16px}}
+    .step-num{{display:inline-block;background:#4a90d9;color:white;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;margin-right:8px;font-size:13px;font-weight:600}}
+    .step-title{{font-weight:600;margin-bottom:8px}}
+    .code-block{{background:#f5f5f5;border-left:3px solid #4a90d9;padding:12px;border-radius:4px;font-family:monospace;font-size:12px;overflow-x:auto;margin:8px 0}}
+    .code-block code{{color:#333}}
+    .copy-btn{{background:#4a90d9;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;margin-left:8px}}
+    .copy-btn:hover{{background:#357abd}}
+    button{{margin-top:12px;padding:10px 16px;background:#4a90d9;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px}}
+    button:hover{{background:#357abd}}
+    .advanced{{margin-top:20px;border-top:1px solid #eee;padding-top:20px}}
+    .toggle{{cursor:pointer;user-select:none;color:#4a90d9}}
+    .toggle:hover{{text-decoration:underline}}
+    #upload-form{{display:none;margin-top:16px}}
+    label{{display:block;font-size:13px;font-weight:600;color:#444;margin:12px 0 6px 0}}
+    input[type=email],input[type=file]{{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:13px}}
+    .info{{background:#e8f4f8;border-left:3px solid #4a90d9;padding:12px;border-radius:4px;margin:12px 0;font-size:13px}}
+    a{{color:#4a90d9;text-decoration:none}}
+    a:hover{{text-decoration:underline}}
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="container">
     <h1>Auto-SDLC Log Analysis</h1>
-    <p>Upload your Claude Code session logs to generate your maturity report.</p>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-      <label>Your email address</label>
-      <input type="email" name="user_id" placeholder="you@company.com" required>
-      <label>Claude logs ZIP file</label>
-      <input type="file" name="logs_zip" accept=".zip" required>
-      <button type="submit">Upload &amp; Analyze</button>
-    </form>
-    <div class="hint">
-      <strong>How to create the ZIP:</strong><br>
-      <code>cd ~/.claude && zip -r ~/claude-logs.zip projects/</code><br><br>
-      Then upload the <code>claude-logs.zip</code> file above.
+    <p class="subtitle">Submit your Claude Code session logs and see your maturity report</p>
+
+    <div class="section">
+      <div class="step">
+        <span class="step-num">1</span>
+        <div class="step-title">Install the CLI (if needed)</div>
+        <div class="code-block"><code>pip install auto-sdlc</code></div>
+      </div>
+
+      <div class="step">
+        <span class="step-num">2</span>
+        <div class="step-title">Submit your logs (one-time)</div>
+        <div class="code-block"><code>auto-sdlc logs \\<br>&nbsp;&nbsp;--user-id you@company.com \\<br>&nbsp;&nbsp;--export-url {export_url}</code></div>
+        <button class="copy-btn" onclick="copyCommand()">Copy Command</button>
+        <div class="info">
+          This command reads your <code>~/.claude/projects/</code> and sends your session logs to this server.
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="advanced">
+        <div class="toggle" onclick="toggleUpload()">
+          ▶ Advanced: Upload ZIP manually
+        </div>
+        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+          <label>Your email address</label>
+          <input type="email" name="user_id" placeholder="you@company.com" required>
+          <label>Claude logs ZIP file</label>
+          <input type="file" name="logs_zip" accept=".zip" required>
+          <button type="submit">Upload &amp; Analyze</button>
+          <div class="info" style="margin-top:12px">
+            Create ZIP: <code>cd ~/.claude && zip -r ~/claude-logs.zip projects/</code>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="section" style="text-align:center;background:#f9f9f9">
+      <p style="font-size:13px;color:#666">
+        After submission, view your report or<br><a href="/team/html">see the team dashboard →</a>
+      </p>
     </div>
   </div>
+
+  <script>
+    function copyCommand() {{
+      const cmd = `auto-sdlc logs --user-id you@company.com --export-url {export_url}`;
+      navigator.clipboard.writeText(cmd).then(() => {{
+        alert('Command copied to clipboard!');
+      }}).catch(() => {{
+        alert('Could not copy. Please copy manually.');
+      }});
+    }}
+    function toggleUpload() {{
+      const form = document.getElementById('upload-form');
+      const toggle = event.target;
+      if (form.style.display === 'none') {{
+        form.style.display = 'block';
+        toggle.textContent = '▼ Advanced: Upload ZIP manually';
+      }} else {{
+        form.style.display = 'none';
+        toggle.textContent = '▶ Advanced: Upload ZIP manually';
+      }}
+    }}
+  </script>
 </body>
-</html>"""
+</html>""".format(export_url=export_url)
 
     @app.post("/upload")
     async def upload_logs(user_id: str = Form(...), logs_zip: UploadFile = File(...)):
