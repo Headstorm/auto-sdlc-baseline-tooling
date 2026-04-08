@@ -123,6 +123,95 @@ auto-sdlc logs --user-id alice@company.com --export-url http://your-server:8000/
 
 ---
 
+### `auto-sdlc ingest`
+
+**One-time batch ingestion**: discover all users in a shared directory structure, process each one's logs, and generate a team-level maturity report in a single command.
+
+```bash
+auto-sdlc ingest --logs-root PATH --output-dir PATH [OPTIONS]
+```
+
+| Option | Description |
+|---|---|
+| `--logs-root PATH` | Root directory containing user subdirectories with logs |
+| `--output-dir PATH` | Where to write per-user JSON reports + team rollup. Default: `./auto-sdlc-reports` |
+| `--since YYYY-MM-DD` | Only include sessions on or after this date |
+| `--html` | Also render individual + team HTML reports |
+| `--qualitative` | Run LLM qualitative analysis on each user (slow) |
+| `--users-file PATH` | CSV file with `user_id,logs_path` per line. Overrides directory discovery |
+
+**Supported directory layouts:**
+
+Layout A (standard Claude Code structure):
+```
+/shared/logs/
+├── alice/
+│   └── projects/
+│       ├── myapp/
+│       │   └── sessions.jsonl
+│       └── backend/
+│           └── sessions.jsonl
+└── bob/
+    └── projects/
+        └── repo/
+            └── sessions.jsonl
+```
+
+Layout B (flat JSONL files):
+```
+/shared/logs/
+├── alice@company.com/
+│   ├── session_001.jsonl
+│   └── session_002.jsonl
+└── bob@company.com/
+    ├── session_001.jsonl
+    └── session_002.jsonl
+```
+
+**Optional CSV user mapping** (`--users-file`):
+```csv
+# users.csv
+alice@company.com,/data/alice/.claude/projects/
+bob@company.com,/data/bob/.claude/projects/
+carol@company.com,/exports/carol/
+```
+
+**Examples:**
+
+```bash
+# Simplest: auto-discover users from directory
+auto-sdlc ingest --logs-root /shared/claude-logs/ --output-dir ./reports --html
+
+# With custom user mapping via CSV
+auto-sdlc ingest --users-file users.csv --output-dir ./reports --html
+
+# Time-filtered (e.g., Q1 analysis)
+auto-sdlc ingest --logs-root /exports/ --since 2026-01-01 --output-dir ./q1-reports --html
+
+# With LLM qualitative analysis
+auto-sdlc ingest --logs-root /shared/logs/ --output-dir ./reports --html --qualitative
+```
+
+**Output:**
+
+```
+Discovered 3 users from /shared/claude-logs/
+
+User                           Sessions     Maturity            
+──────────────────────────────────────────────────────────────
+alice@company.com              42           Intermediate        
+bob@company.com                17           Basic               
+carol@company.com              91           Advanced            
+
+Generating team report...
+Team report saved to /path/to/reports/team_report.json
+Team HTML saved to /path/to/reports/team_report.html
+
+✓ Completed. Reports in: /path/to/reports/
+```
+
+---
+
 ### `auto-sdlc team`
 
 Aggregate individual user JSON reports into a team-level maturity report.
@@ -270,7 +359,7 @@ JSONL files → parser → analyzer → scorer → metrics → maturity → repo
 
 ```
 src/auto_sdlc/
-├── cli.py                  # All CLI commands
+├── cli.py                  # All CLI commands (logs, ingest, team, serve, init, audit)
 ├── server.py               # FastAPI central collection server
 ├── logs/
 │   ├── parser.py           # JSONL reader
@@ -281,8 +370,9 @@ src/auto_sdlc/
 │   ├── qualitative.py      # LLM qualitative analysis via claude -p
 │   ├── report.py           # Report assembly + default file output
 │   ├── render_html.py      # Individual HTML report renderer
+│   ├── export.py           # Export to dir or HTTP POST
 │   ├── team.py             # Team rollup + team HTML renderer
-│   └── export.py           # Export to dir or HTTP POST
+│   └── ingest.py           # Bulk ingestion: discover users, process all, aggregate team
 ├── init_wizard/
 │   └── wizard.py           # Config wizard (stub)
 └── audit/
@@ -298,16 +388,21 @@ pip3 install pytest httpx
 python3 -m pytest tests/ -v
 ```
 
-76 tests across all modules.
+86 tests across all modules, including comprehensive coverage of the bulk ingest pipeline.
 
 ---
+
+## Recent Additions
+
+- **✅ `auto-sdlc ingest`** — One-time batch ingestion: discover users from directory or CSV, process all logs, generate per-user reports and team dashboard in a single command
 
 ## Coming Soon
 
 - **`auto-sdlc init`** — Interactive wizard to generate `CLAUDE.md`, `AGENTS.md`, `.rules`, and `settings.json` tailored to the team's maturity level
 - **`auto-sdlc audit`** — Scan installed skills, MCPs, and agents against the Auto-SDLC baseline; report coverage gaps
 - **Claude Code Hook integration** — Zero-action data collection: a post-session hook auto-fires `auto-sdlc logs --export-url` after every Claude session, no developer action required
-- **Persistent database backend** — Replace flat JSON file storage with SQLite/Postgres for historical trending and multi-run comparisons
+- **SQLite incremental store** — Cache processed sessions to avoid re-parsing on repeated runs
+- **Workflow extraction** — Detect multi-session workflows, abandoned tasks, and rework patterns
 - **Trending and delta reports** — Show maturity score changes over time per developer and per team
-- **Gemini CLI support** — Swap `claude -p` for `gemini` CLI in qualitative analysis with a single config flag
 - **Discovery coverage mapping** — Map every Auto-SDLC discovery question and Maturity Model criterion to specific metrics and qualitative checks, with a coverage report showing gaps
+- **Gemini CLI support** — Swap `claude -p` for `gemini` CLI in qualitative analysis with a single config flag
