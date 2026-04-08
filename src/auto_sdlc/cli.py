@@ -73,6 +73,34 @@ def logs(projects_dir, output, project, since, summary_only, user_id, qualitativ
 
 
 @cli.command()
+@click.option("--logs-root", default=None,
+              help="Root directory containing user subdirs with logs.")
+@click.option("--output-dir", default="./auto-sdlc-reports",
+              help="Where to write per-user JSON reports + team rollup.")
+@click.option("--since", default=None, metavar="YYYY-MM-DD",
+              help="Only include sessions on or after this date.")
+@click.option("--html", is_flag=True, default=False,
+              help="Also render individual + team HTML reports.")
+@click.option("--qualitative", is_flag=True, default=False,
+              help="Run LLM qualitative analysis (slow, requires claude CLI).")
+@click.option("--users-file", default=None,
+              help="CSV with user_id,logs_path per line. Overrides directory discovery.")
+def ingest(logs_root, output_dir, since, html, qualitative, users_file):
+    """Batch-ingest all users' Claude Code logs for team analysis."""
+    if not logs_root and not users_file:
+        raise click.UsageError("Must provide --logs-root or --users-file")
+    from auto_sdlc.logs.ingest import run_bulk_ingest
+    run_bulk_ingest(
+        logs_root=logs_root,
+        output_dir=output_dir,
+        since=since,
+        html=html,
+        qualitative=qualitative,
+        users_file=users_file,
+    )
+
+
+@cli.command()
 @click.option("--reports-dir", required=True,
               help="Directory containing individual user JSON report files.")
 @click.option("--output", default=None,
