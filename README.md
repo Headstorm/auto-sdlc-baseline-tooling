@@ -1,357 +1,244 @@
 # Auto-SDLC Baseline Tooling
 
-A Python CLI for baselining developer AI maturity — parse Claude Code session logs, score prompt quality, measure behavioral patterns, generate individual and team-level maturity reports, and collect data centrally for team-wide analysis.
+Analyze your team's Claude Code usage to understand AI maturity. Upload logs through a web interface or CLI, get instant team dashboards showing prompt quality, behavioral patterns, and maturity scores across 5 dimensions.
 
-Built to automate the discovery process used in Auto-SDLC engagements: instead of interviewing developers about how they use Claude, we read the actual logs.
+Built to automate the discovery process used in Auto-SDLC engagements: instead of interviewing developers, we read the actual session logs.
 
 ---
 
-## Installation
+## Quick Start: The Web Application
 
-**Requirements:** Python 3.9+
+### 1. Deploy the Server
+
+The easiest way to get started is to deploy the FastAPI application to [Railway](https://railway.app):
 
 ```bash
+# Clone and install
 git clone https://github.com/Headstorm/auto-sdlc-baseline-tooling.git
 cd auto-sdlc-baseline-tooling
-pip3 install -e .
+pip install -e ".[server]"
+
+# Push to Railway (auto-deploys from Procfile)
+# → Get a URL like: https://auto-sdlc-production.up.railway.app
 ```
 
-For the central collection server, also install server dependencies:
+Railway handles the hosting; you get a live HTTPS URL with persistent storage. Free tier available.
+
+### 2. Developers Submit Logs (One Command)
+
+Each developer runs **once**:
+
 ```bash
-pip3 install -e ".[server]"
+auto-sdlc logs --user-id you@company.com \
+               --export-url https://your-app.railway.app/reports
 ```
 
-Add to PATH (add to your `~/.zshrc` or `~/.bashrc`):
-```bash
-export PATH="$PATH:/Users/<you>/Library/Python/3.9/bin"
+This reads their local `~/.claude/projects/` and sends the analysis to the server.
+
+### 3. View Team Dashboard
+
+Open the live team dashboard anytime:
 ```
+https://your-app.railway.app/team/html
+```
+
+Shows:
+- Team maturity level (0-4)
+- Per-developer breakdown (sessions, prompt quality, maturity score)
+- Maturity by dimension (prompting, tooling, frequency, depth, efficiency)
 
 ---
 
-## Commands
+## Workflows
 
-### `auto-sdlc logs`
+### Scenario A: Quarterly Team Review (Recommended)
 
-Analyze Claude Code JSONL session files from `~/.claude/projects/`. Generates a full maturity report with behavioral metrics, dimension scores, and optional LLM qualitative analysis.
+**Goal**: Understand team AI maturity at the end of a quarter.
 
-```bash
-auto-sdlc logs [OPTIONS]
-```
+1. **Admin**: Deploy to Railway (one-time, 5 minutes)
+2. **Each developer**: Run the one-command submit (one-time, takes 30 seconds)
+3. **Team lead**: Open dashboard, present results
 
-| Option | Description |
-|---|---|
-| `--projects-dir PATH` | Override the default `~/.claude/projects/` path |
-| `--output PATH` | Save JSON report to this path. Defaults to `~/.auto-sdlc/reports/<user>/<timestamp>.json` |
-| `--project TEXT` | Filter sessions where working directory contains this string |
-| `--since YYYY-MM-DD` | Only include sessions on or after this date |
-| `--user-id TEXT` | Tag the report with a developer identifier (email or name) |
-| `--summary-only` | Print a short summary to stdout instead of saving the full report |
-| `--html` | Also render a self-contained HTML report alongside the JSON |
-| `--qualitative` | Run LLM qualitative analysis via `claude -p` (slow, requires claude CLI) |
-| `--export-dir PATH` | Copy the report JSON to this directory (for team aggregation via shared folder) |
-| `--export-url URL` | POST the report JSON to this URL (for central server collection) |
-
-**Examples:**
-
-```bash
-# Run and save to default location (~/.auto-sdlc/reports/)
-auto-sdlc logs
-
-# Quick summary to stdout
-auto-sdlc logs --summary-only
-
-# Full report with HTML visualization
-auto-sdlc logs --html
-
-# Full report with LLM qualitative analysis
-auto-sdlc logs --qualitative --html
-
-# Filter to a specific project and date range
-auto-sdlc logs --project semios --since 2026-01-01
-
-# Tag report with your identity
-auto-sdlc logs --user-id alice@company.com --html
-
-# Export to shared folder for team rollup
-auto-sdlc logs --user-id alice@company.com --export-dir /shared/reports/
-
-# Send to central collection server
-auto-sdlc logs --user-id alice@company.com --export-url http://your-server:8000/reports
-```
-
-**Report structure:**
-
-```json
-{
-  "generated_at": "2026-04-01T10:00:00+00:00",
-  "user_id": "alice@company.com",
-  "filters": { "project": null, "since": null },
-  "summary": {
-    "total_sessions": 114,
-    "total_tokens": 220000000,
-    "avg_prompt_quality_score": 33.5
-  },
-  "behavioral_metrics": {
-    "total_user_messages": 1760,
-    "total_skill_invocations": 56,
-    "skill_invocation_ratio": 0.031,
-    "sessions_per_day": 14.25,
-    "avg_messages_per_session": 15.9,
-    "unique_tools_used": ["Bash", "Edit", "Read", "Skill", "..."]
-  },
-  "maturity_scores": {
-    "overall_level": 2,
-    "overall_label": "Intermediate",
-    "dimensions": {
-      "prompting_sophistication": { "level": 2, "level_label": "Intermediate" },
-      "tooling_adoption":         { "level": 1, "level_label": "Basic" },
-      "usage_frequency":          { "level": 4, "level_label": "Expert" },
-      "session_depth":            { "level": 3, "level_label": "Advanced" },
-      "context_efficiency":       { "level": 2, "level_label": "Intermediate" }
-    }
-  },
-  "project_breakdown": [
-    { "project": "semios/backend", "sessions": 40, "total_tokens": 80000000, "avg_prompt_quality": 38.0 }
-  ],
-  "qualitative_analysis": {
-    "narrative": "Developer shows strong usage frequency...",
-    "workflow_patterns": { "workflows": [{ "pattern": "Debugging", "evidence": "..." }] },
-    "anti_patterns":     { "anti_patterns": [{ "name": "Vague prompts", "recommendation": "..." }] }
-  }
-}
-```
+**Timeline**: One hour total. No ongoing overhead.
 
 ---
 
-### `auto-sdlc ingest`
+### Scenario B: One-Time Bulk Analysis (No Server)
 
-**One-time batch ingestion**: discover all users in a shared directory structure, process each one's logs, and generate a team-level maturity report in a single command.
-
-```bash
-auto-sdlc ingest --logs-root PATH --output-dir PATH [OPTIONS]
-```
-
-| Option | Description |
-|---|---|
-| `--logs-root PATH` | Root directory containing user subdirectories with logs |
-| `--output-dir PATH` | Where to write per-user JSON reports + team rollup. Default: `./auto-sdlc-reports` |
-| `--since YYYY-MM-DD` | Only include sessions on or after this date |
-| `--html` | Also render individual + team HTML reports |
-| `--qualitative` | Run LLM qualitative analysis on each user (slow) |
-| `--users-file PATH` | CSV file with `user_id,logs_path` per line. Overrides directory discovery |
-
-**Supported directory layouts:**
-
-Layout A (standard Claude Code structure):
-```
-/shared/logs/
-├── alice/
-│   └── projects/
-│       ├── myapp/
-│       │   └── sessions.jsonl
-│       └── backend/
-│           └── sessions.jsonl
-└── bob/
-    └── projects/
-        └── repo/
-            └── sessions.jsonl
-```
-
-Layout B (flat JSONL files):
-```
-/shared/logs/
-├── alice@company.com/
-│   ├── session_001.jsonl
-│   └── session_002.jsonl
-└── bob@company.com/
-    ├── session_001.jsonl
-    └── session_002.jsonl
-```
-
-**Optional CSV user mapping** (`--users-file`):
-```csv
-# users.csv
-alice@company.com,/data/alice/.claude/projects/
-bob@company.com,/data/bob/.claude/projects/
-carol@company.com,/exports/carol/
-```
-
-**Examples:**
+**Goal**: Analyze the team without deploying a server.
 
 ```bash
-# Simplest: auto-discover users from directory
-auto-sdlc ingest --logs-root /shared/claude-logs/ --output-dir ./reports --html
+# Collect all developers' logs into one folder
+# Then run:
+auto-sdlc ingest --logs-root /path/to/collected/logs \
+                 --output-dir ./team-report \
+                 --html
 
-# With custom user mapping via CSV
-auto-sdlc ingest --users-file users.csv --output-dir ./reports --html
-
-# Time-filtered (e.g., Q1 analysis)
-auto-sdlc ingest --logs-root /exports/ --since 2026-01-01 --output-dir ./q1-reports --html
-
-# With LLM qualitative analysis
-auto-sdlc ingest --logs-root /shared/logs/ --output-dir ./reports --html --qualitative
+# Output: HTML dashboard at ./team-report/team_report.html
 ```
 
-**Output:**
-
-```
-Discovered 3 users from /shared/claude-logs/
-
-User                           Sessions     Maturity            
-──────────────────────────────────────────────────────────────
-alice@company.com              42           Intermediate        
-bob@company.com                17           Basic               
-carol@company.com              91           Advanced            
-
-Generating team report...
-Team report saved to /path/to/reports/team_report.json
-Team HTML saved to /path/to/reports/team_report.html
-
-✓ Completed. Reports in: /path/to/reports/
-```
+Good for: one-time snapshots, testing, organizations without cloud infrastructure.
 
 ---
 
-### `auto-sdlc team`
+### Scenario C: Personal Insights
 
-Aggregate individual user JSON reports into a team-level maturity report.
-
-```bash
-auto-sdlc team --reports-dir PATH [OPTIONS]
-```
-
-| Option | Description |
-|---|---|
-| `--reports-dir PATH` | **(Required)** Directory containing individual user JSON report files |
-| `--output PATH` | Save team report to this path. Defaults to `<reports-dir>/team_report.json` |
-| `--html` | Also render a team HTML dashboard |
-
-**Typical team workflow:**
+**Goal**: Developer wants to see their own maturity score.
 
 ```bash
-# Each developer runs on their own machine:
-auto-sdlc logs --user-id alice@company.com --export-dir /shared/reports/
-auto-sdlc logs --user-id bob@company.com   --export-dir /shared/reports/
-
-# Team lead aggregates:
-auto-sdlc team --reports-dir /shared/reports/ --html
+auto-sdlc logs --user-id you@company.com --html
 ```
 
-**Team report includes:**
-- Overall team maturity level and label
-- Maturity by dimension (averaged across all members)
-- Per-member table (sessions, prompt quality, skill adoption, maturity)
-- Total sessions and tokens across the team
+Generates a personal HTML report at `~/.auto-sdlc/reports/`.
 
 ---
 
-### `auto-sdlc serve`
+## Feature Comparison
 
-Start a central collection server. Developers POST their reports to it; the server computes the live team report on demand.
-
-```bash
-auto-sdlc serve [OPTIONS]
-```
-
-| Option | Description |
-|---|---|
-| `--reports-dir PATH` | Directory to store received reports. Defaults to `~/.auto-sdlc/server/reports/` |
-| `--host TEXT` | Host to bind to. Default: `0.0.0.0` |
-| `--port INT` | Port to listen on. Default: `8000` |
-
-**API endpoints:**
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Health check |
-| `/reports` | POST | Receive a developer JSON report |
-| `/reports` | GET | List all stored reports |
-| `/team` | GET | Live team report as JSON |
-| `/team/html` | GET | Live team HTML dashboard |
-
-**Example workflow with server:**
-
-```bash
-# On a shared machine or server:
-auto-sdlc serve --port 8000
-
-# Each developer sends their report:
-auto-sdlc logs --user-id alice@company.com --export-url http://your-server:8000/reports
-
-# Team dashboard always live at:
-# http://your-server:8000/team/html
-```
-
----
-
-### `auto-sdlc init` *(coming soon)*
-
-Interactive wizard to generate baseline SDLC config files:
-- `CLAUDE.md` — project-level Claude Code instructions
-- `AGENTS.md` — agent behavior rules
-- `.rules` — coding constraints
-- `settings.json` — Claude Code settings (hooks, permissions, model preferences)
-
-### `auto-sdlc audit` *(coming soon)*
-
-Scan installed Claude Code capabilities (skills, MCP servers, agents) against the Auto-SDLC baseline and report gaps.
+| Use Case | Method | Setup | Per-Run Effort | Best For |
+|----------|--------|-------|---|---|
+| **Live team dashboard** | Deploy server → developers submit | 5 min | 30 sec/person | Ongoing monitoring, team reviews |
+| **One-time analysis** | Bulk ingest | 0 min | 5 min (total) | Quarterly snapshots, no infrastructure |
+| **Personal report** | Local CLI | 0 min | 30 sec | Individual developer insight |
 
 ---
 
 ## Maturity Model
 
-Each developer report is scored across **5 dimensions**, each rated 0–4:
+Each developer report scores 5 dimensions (0–4 each):
 
 | Dimension | What It Measures |
 |---|---|
-| **Prompting Sophistication** | Average prompt quality score (0–100 rule-based) |
-| **Tooling Adoption** | Ratio of skill/command invocations to raw prompts |
-| **Usage Frequency** | Sessions per day (how consistently Claude is being used) |
-| **Session Depth** | Average messages per session (shallow Q&A vs deep collaboration) |
-| **Context Efficiency** | Cache read ratio (how well context is being reused) |
+| **Prompting Sophistication** | Average prompt quality (0–100 rule-based) |
+| **Tooling Adoption** | Ratio of skill invocations to raw prompts |
+| **Usage Frequency** | Sessions per day |
+| **Session Depth** | Average messages per session |
+| **Context Efficiency** | Cache read ratio |
 
-**Maturity levels:**
-
-| Level | Label |
-|---|---|
-| 0 | Beginner |
-| 1 | Basic |
-| 2 | Intermediate |
-| 3 | Advanced |
-| 4 | Expert |
+**Levels**: 0=Beginner, 1=Basic, 2=Intermediate, 3=Advanced, 4=Expert
 
 ---
 
 ## Prompt Quality Scoring
 
-Every user prompt is scored **0–100** using rule-based heuristics:
+Every user prompt is scored 0–100 using rule-based heuristics:
 
 | Criterion | Points | Signal |
 |---|---|---|
 | Word count ≥ 20 | +30 | Detailed, not vague |
-| File path reference (`src/`, `.py`, `.ts`, etc.) | +25 | Grounded in codebase |
+| File path reference (`src/`, `.py`) | +25 | Grounded in codebase |
 | Line number reference (`line 42`, `L42`) | +15 | Precise location |
-| Error/exception text (`TypeError`, `Traceback`, etc.) | +15 | Debugging context |
-| Action verb in first 5 words (`fix`, `add`, `refactor`, etc.) | +15 | Clear intent |
+| Error/exception text | +15 | Debugging context |
+| Action verb in first 5 words | +15 | Clear intent |
 
-**0–30**: Vague. **70+**: High-quality, well-scoped prompts.
+**Score**: 0–30 = vague, 70+ = high-quality.
+
+---
+
+## Installation
+
+**Requirements**: Python 3.9+
+
+### For the Server (Recommended)
+
+```bash
+git clone https://github.com/Headstorm/auto-sdlc-baseline-tooling.git
+cd auto-sdlc-baseline-tooling
+pip install -e ".[server]"
+```
+
+Then deploy to Railway (see Quick Start above).
+
+### For Local/CLI Only
+
+```bash
+pip install -e .
+```
+
+### For Development
+
+```bash
+pip install -e ".[server]"
+pip install pytest
+python -m pytest tests/ -v  # 94 tests
+```
+
+---
+
+## CLI Reference
+
+If you prefer command-line workflows (or aren't running a server), these commands are available:
+
+### `auto-sdlc serve`
+
+Start a local development server:
+
+```bash
+auto-sdlc serve --port 8000
+# Open http://localhost:8000
+```
+
+### `auto-sdlc logs`
+
+Analyze local Claude Code logs:
+
+```bash
+auto-sdlc logs --user-id you@company.com --html --export-url http://server:8000/reports
+```
+
+**Options:**
+- `--projects-dir PATH` — Override default `~/.claude/projects/`
+- `--output PATH` — Save JSON report to custom path
+- `--html` — Also render HTML report
+- `--export-url URL` — POST to server (for Scenario A)
+- `--export-dir PATH` — Save to local directory (for Scenario B)
+- `--since YYYY-MM-DD` — Filter to date range
+- `--qualitative` — Run LLM analysis (requires claude CLI)
+
+### `auto-sdlc ingest`
+
+Batch-process all users at once:
+
+```bash
+auto-sdlc ingest --logs-root /shared/logs \
+                 --output-dir ./reports \
+                 --html
+```
+
+**Options:**
+- `--users-file PATH` — CSV with `user_id,logs_path` mapping
+- `--since YYYY-MM-DD` — Filter to date range
+- `--qualitative` — Run LLM analysis on all users
+
+### `auto-sdlc team`
+
+Aggregate pre-existing JSON reports:
+
+```bash
+auto-sdlc team --reports-dir /path/to/reports --html
+```
 
 ---
 
 ## How It Works
 
-Claude Code writes a JSONL log file for every conversation at:
-```
-~/.claude/projects/<project-slug>/<session-id>.jsonl
-```
-
-`auto-sdlc logs` reads all `.jsonl` files recursively, extracts typed events (user turns, assistant turns, session metadata), and runs the full analysis pipeline:
+Claude Code writes JSONL files to `~/.claude/projects/`:
 
 ```
-JSONL files → parser → analyzer → scorer → metrics → maturity → report
-                                                              ↓
-                                                    render_html / export / serve
+~/.claude/projects/
+├── project-a/
+│   └── <session-id>.jsonl
+└── project-b/
+    └── <session-id>.jsonl
 ```
+
+Auto-SDLC parses these files through an analysis pipeline:
+
+```
+JSONL → Parser → Analyzer → Scorer → Metrics → Maturity → Report → HTML/JSON
+```
+
+Results can be saved locally, posted to a server, or aggregated from multiple users.
 
 ---
 
@@ -359,50 +246,60 @@ JSONL files → parser → analyzer → scorer → metrics → maturity → repo
 
 ```
 src/auto_sdlc/
-├── cli.py                  # All CLI commands (logs, ingest, team, serve, init, audit)
-├── server.py               # FastAPI central collection server
+├── cli.py                  # CLI entry points
+├── server.py               # FastAPI application (web UI + API)
 ├── logs/
 │   ├── parser.py           # JSONL reader
-│   ├── analyzer.py         # Token + session metadata extraction
-│   ├── scorer.py           # Rule-based prompt quality scoring (0-100)
-│   ├── metrics.py          # Behavioral metrics (skill ratio, sessions/day, etc.)
-│   ├── maturity.py         # 5-dimension maturity scoring (0-4 per dim)
-│   ├── qualitative.py      # LLM qualitative analysis via claude -p
-│   ├── report.py           # Report assembly + default file output
-│   ├── render_html.py      # Individual HTML report renderer
-│   ├── export.py           # Export to dir or HTTP POST
-│   ├── team.py             # Team rollup + team HTML renderer
-│   └── ingest.py           # Bulk ingestion: discover users, process all, aggregate team
+│   ├── analyzer.py         # Token + metadata extraction
+│   ├── scorer.py           # Prompt quality scoring (0-100)
+│   ├── metrics.py          # Behavioral metrics
+│   ├── maturity.py         # 5-dimension scoring
+│   ├── qualitative.py      # LLM analysis
+│   ├── report.py           # Report assembly
+│   ├── render_html.py      # HTML rendering
+│   ├── export.py           # Export to dir/HTTP
+│   ├── team.py             # Team aggregation
+│   └── ingest.py           # Bulk ingestion
 ├── init_wizard/
 │   └── wizard.py           # Config wizard (stub)
 └── audit/
-    └── scanner.py          # Capabilities auditor (stub)
+    └── scanner.py          # Audit tool (stub)
 ```
 
 ---
 
-## Running Tests
+## Testing
 
 ```bash
-pip3 install pytest httpx
-python3 -m pytest tests/ -v
+python -m pytest tests/ -v
 ```
 
-86 tests across all modules, including comprehensive coverage of the bulk ingest pipeline.
+94 tests covering all modules. Full CI/CD ready.
 
 ---
 
-## Recent Additions
+## What's Implemented
 
-- **✅ `auto-sdlc ingest`** — One-time batch ingestion: discover users from directory or CSV, process all logs, generate per-user reports and team dashboard in a single command
+✅ **Phase 1**: Core analysis pipeline (parser, scorer, metrics, maturity, report generation, HTML rendering)
+✅ **Phase 2**: Web application (server with file upload, individual dashboards, team aggregation)
+✅ **Phase 3**: Railway deployment (Procfile, env var support, CLI-first landing page)
+✅ **Bulk ingest** (`auto-sdlc ingest` command for one-time team analysis)
+
+---
 
 ## Coming Soon
 
-- **`auto-sdlc init`** — Interactive wizard to generate `CLAUDE.md`, `AGENTS.md`, `.rules`, and `settings.json` tailored to the team's maturity level
-- **`auto-sdlc audit`** — Scan installed skills, MCPs, and agents against the Auto-SDLC baseline; report coverage gaps
-- **Claude Code Hook integration** — Zero-action data collection: a post-session hook auto-fires `auto-sdlc logs --export-url` after every Claude session, no developer action required
-- **SQLite incremental store** — Cache processed sessions to avoid re-parsing on repeated runs
-- **Workflow extraction** — Detect multi-session workflows, abandoned tasks, and rework patterns
-- **Trending and delta reports** — Show maturity score changes over time per developer and per team
-- **Discovery coverage mapping** — Map every Auto-SDLC discovery question and Maturity Model criterion to specific metrics and qualitative checks, with a coverage report showing gaps
-- **Gemini CLI support** — Swap `claude -p` for `gemini` CLI in qualitative analysis with a single config flag
+- **`auto-sdlc init`** — Interactive wizard to generate CLAUDE.md, AGENTS.md, .rules config
+- **`auto-sdlc audit`** — Scan installed Claude Code capabilities against baseline
+- **SQLite persistence** — Store reports in database for history/trending instead of files
+- **Workflow extraction** — Detect multi-session patterns, abandoned tasks, rework cycles
+- **Discovery mapping** — Map maturity criteria to Auto-SDLC discovery questions
+- **Auto-sync hook** — Claude Code Stop hook that auto-POSTs logs after every session (zero ongoing effort after setup)
+- **Trending dashboard** — Show maturity changes over time per developer and team
+- **Gemini/other LLM support** — Use alternative LLMs for qualitative analysis
+
+---
+
+## License
+
+MIT
