@@ -1,7 +1,9 @@
+import io
 import json
+import zipfile
 import pytest
 from fastapi.testclient import TestClient
-from auto_sdlc.server import create_app
+from auto_sdlc.server import create_app, _find_projects_dir
 
 
 def _sample_report(user_id="alice@example.com", overall_level=2, sessions=5, tokens=100000):
@@ -93,3 +95,90 @@ def test_team_html_after_reports(client):
     assert r.status_code == 200
     assert "<!DOCTYPE html>" in r.text
     assert "alice" in r.text
+
+
+# --- Upload & Dashboard Tests ---
+
+def _make_zip(session_lines):
+    """Create an in-memory ZIP with a minimal projects/ layout."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        content = "\n".join(json.dumps(line) for line in session_lines)
+        zf.writestr("projects/myapp/session.jsonl", content)
+    buf.seek(0)
+    return buf
+
+
+def test_upload_form_returns_html(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "<form" in r.text
+    assert "upload" in r.text.lower()
+
+
+def test_upload_zip_redirects_to_dashboard(client, sample_session_lines):
+    zip_buf = _make_zip(sample_session_lines)
+    r = client.post(
+        "/upload",
+        data={"user_id": "alice@test.com"},
+        files={"logs_zip": ("projects.zip", zip_buf, "application/zip")},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "alice_at_test.com" in r.headers["location"]
+
+
+def test_upload_creates_report_file(client, tmp_path, sample_session_lines):
+    zip_buf = _make_zip(sample_session_lines)
+    client.post(
+        "/upload",
+        data={"user_id": "alice@test.com"},
+        files={"logs_zip": ("projects.zip", zip_buf, "application/zip")},
+    )
+    files = list(tmp_path.glob("alice_at_test.com_*.json"))
+    assert len(files) == 1
+    report = json.loads(files[0].read_text())
+    assert report["user_id"] == "alice@test.com"
+
+
+def test_dashboard_returns_individual_html(client, sample_session_lines):
+    zip_buf = _make_zip(sample_session_lines)
+    client.post(
+        "/upload",
+        data={"user_id": "alice@test.com"},
+        files={"logs_zip": ("projects.zip", zip_buf, "application/zip")},
+    )
+    r = client.get("/dashboard/alice_at_test.com")
+    assert r.status_code == 200
+    assert "<!DOCTYPE html>" in r.text
+    assert "Team Dashboard" in r.text  # injected nav link
+
+
+def test_upload_rejects_non_zip(client):
+    r = client.post(
+        "/upload",
+        data={"user_id": "test@test.com"},
+        files={"logs_zip": ("file.txt", b"not a zip", "text/plain")},
+    )
+    assert r.status_code == 400
+
+
+def test_dashboard_404_for_unknown_user(client):
+    r = client.get("/dashboard/nobody")
+    assert r.status_code == 404
+
+
+def test_find_projects_dir_with_projects_subdir(tmp_path):
+    """_find_projects_dir should return the projects/ subdir if it exists."""
+    projects = tmp_path / "projects" / "myapp"
+    projects.mkdir(parents=True)
+    (projects / "s.jsonl").write_text('{"type":"say"}\n')
+    result = _find_projects_dir(tmp_path)
+    assert result == tmp_path / "projects"
+
+
+def test_find_projects_dir_flat_layout(tmp_path):
+    """_find_projects_dir should return root when jsonl files are at top level."""
+    (tmp_path / "s.jsonl").write_text('{"type":"say"}\n')
+    result = _find_projects_dir(tmp_path)
+    assert result == tmp_path
