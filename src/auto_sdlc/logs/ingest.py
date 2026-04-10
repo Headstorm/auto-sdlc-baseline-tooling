@@ -8,7 +8,7 @@ from typing import Union, List, Tuple
 
 from auto_sdlc.logs.report import build_report
 from auto_sdlc.logs.export import export_report_to_dir
-from auto_sdlc.logs.team import build_team_report_from_dir, render_team_html
+from auto_sdlc.logs.team import build_team_report, build_team_report_from_dir, render_team_html
 
 
 def discover_users_from_dir(logs_root: Union[Path, str]) -> List[Tuple[str, Path]]:
@@ -144,7 +144,19 @@ def run_bulk_ingest(logs_root, output_dir, since=None, html=False,
     click.echo()
     click.echo("Generating team report...")
 
-    team_report = build_team_report_from_dir(str(output_dir))
+    # Load individual reports for both team aggregation and HTML rendering
+    user_reports = []
+    for f in sorted(output_dir.glob("*.json")):
+        if f.name == "team_report.json":
+            continue
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            user_id = data.get("user_id", f.stem)
+            user_reports.append((user_id, data))
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    team_report = build_team_report(user_reports)
     team_report["generated_at"] = datetime.now(tz=timezone.utc).isoformat()
 
     team_report_path = output_dir / "team_report.json"
@@ -155,17 +167,8 @@ def run_bulk_ingest(logs_root, output_dir, since=None, html=False,
     click.echo(f"Team report saved to {team_report_path}")
 
     if html:
-        # Load individual reports for metrics detail
-        user_reports_for_metrics = []
-        for f in sorted(output_dir.glob("*.json")):
-            if f.name == "team_report.json":
-                continue
-            try:
-                data = json.loads(f.read_text(encoding="utf-8"))
-                user_reports_for_metrics.append(data)
-            except (json.JSONDecodeError, OSError):
-                continue
-
+        # Reuse already-loaded user reports for HTML rendering
+        user_reports_for_metrics = [r for _, r in user_reports]
         team_html_content = render_team_html(team_report, user_reports_for_metrics)
         team_html_path = output_dir / "team_report.html"
         team_html_path.write_text(team_html_content, encoding="utf-8")

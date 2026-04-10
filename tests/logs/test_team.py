@@ -129,6 +129,8 @@ def test_render_team_html_prompting_sophistication_metrics():
     assert "Prompting Sophistication" in html
     assert "Team Avg Prompt Quality" in html
     assert "Developers at Level 3+" in html
+    # Assert actual score value (50 from test data)
+    assert "50" in html
 
 
 def test_render_team_html_tooling_adoption_metrics():
@@ -141,6 +143,8 @@ def test_render_team_html_tooling_adoption_metrics():
     assert "Tooling Adoption" in html
     assert "Team Avg Skill Ratio" in html
     assert "Developers Using Tools" in html
+    # Assert actual calculated value (20% skill ratio from test data)
+    assert "20%" in html or "20.0%" in html
 
 
 def test_render_team_html_usage_frequency_metrics():
@@ -221,3 +225,5 @@ def test_render_team_html_with_context_efficiency_dimension():
     assert "Context Efficiency" in html
     assert "Team Cache Hit Ratio" in html
     assert "Cache Read Tokens" in html
+    # Assert actual calculated cache hit ratio (110000/220000 = 50%)
+    assert "50%" in html or "50.0%" in html

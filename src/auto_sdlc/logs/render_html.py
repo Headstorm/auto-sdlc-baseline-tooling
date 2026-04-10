@@ -508,7 +508,7 @@ def render_team_html(team_report, user_reports=None):
         ).format(
             user_id=escape(m.get("user_id", "unknown")),
             sessions=m.get("sessions", 0),
-            quality=m.get("avg_prompt_quality") or "—",
+            quality=escape(str(m.get("avg_prompt_quality") or "—")),
             skill_pct=skill_pct,
             color=color,
             label=escape(m.get("overall_maturity_label", "—")),
@@ -569,7 +569,7 @@ def render_team_html(team_report, user_reports=None):
         team_size=team_size,
         total_sessions=team_report.get("total_sessions", 0),
         total_tokens=_fmt_tokens(team_report.get("total_tokens")),
-        avg_quality=team_report.get("avg_prompt_quality") or "—",
+        avg_quality=escape(str(team_report.get("avg_prompt_quality") or "—")),
         skill_pct=int((team_report.get("avg_skill_invocation_ratio") or 0) * 100),
         maturity_color=maturity_color,
         overall_label=escape(overall_label),
