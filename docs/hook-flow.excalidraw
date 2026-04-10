@@ -1,0 +1,63 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "auto-sdlc",
+  "elements": [
+    {"type":"text","id":"title","x":180,"y":15,"width":580,"height":30,"text":"Auto-SDLC: Hook → Log Extraction → Central Server + SQLite","fontSize":18,"fontFamily":1,"textAlign":"center","fontStyle":1,"strokeColor":"#222","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":1,"version":1},
+
+    {"type":"text","id":"devlabel","x":20,"y":58,"width":220,"height":20,"text":"DEVELOPER MACHINE (each dev)","fontSize":11,"fontFamily":1,"textAlign":"left","strokeColor":"#888","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":2,"version":1},
+
+    {"type":"rectangle","id":"session","x":30,"y":80,"width":185,"height":55,"backgroundColor":"#dbeafe","strokeColor":"#1d4ed8","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":3,"version":1},
+    {"type":"text","id":"sessiont","x":38,"y":94,"width":169,"height":30,"text":"Claude Code Session ends","fontSize":12,"fontFamily":1,"textAlign":"center","strokeColor":"#1d4ed8","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":4,"version":1},
+
+    {"type":"arrow","id":"arr1","x":122,"y":136,"width":0,"height":48,"strokeColor":"#555","strokeWidth":2,"roughness":1,"opacity":100,"seed":5,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[0,48]]},
+
+    {"type":"rectangle","id":"hook","x":30,"y":187,"width":185,"height":60,"backgroundColor":"#fef9c3","strokeColor":"#ca8a04","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":6,"version":1},
+    {"type":"text","id":"hookt","x":38,"y":198,"width":169,"height":40,"text":"Stop Hook fires\n(~/.claude/settings.json)","fontSize":12,"fontFamily":1,"textAlign":"center","strokeColor":"#92400e","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":7,"version":1},
+    {"type":"text","id":"hookinstall","x":225,"y":200,"width":165,"height":30,"text":"← set once by\n  auto-sdlc install-hook","fontSize":10,"fontFamily":1,"textAlign":"left","strokeColor":"#aaa","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":8,"version":1},
+
+    {"type":"arrow","id":"arr2","x":122,"y":248,"width":0,"height":48,"strokeColor":"#555","strokeWidth":2,"roughness":1,"opacity":100,"seed":9,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[0,48]]},
+
+    {"type":"rectangle","id":"logscmd","x":30,"y":299,"width":185,"height":70,"backgroundColor":"#ede9fe","strokeColor":"#6d28d9","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":10,"version":1},
+    {"type":"text","id":"logscmdt","x":38,"y":308,"width":169,"height":55,"text":"auto-sdlc logs\n• reads new JSONL only\n  (SQLite tracks seen sessions)","fontSize":11,"fontFamily":1,"textAlign":"center","strokeColor":"#4c1d95","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":11,"version":1},
+
+    {"type":"arrow","id":"arr3","x":122,"y":370,"width":0,"height":48,"strokeColor":"#555","strokeWidth":2,"roughness":1,"opacity":100,"seed":12,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[0,48]]},
+
+    {"type":"rectangle","id":"llm","x":30,"y":421,"width":185,"height":55,"backgroundColor":"#fce7f3","strokeColor":"#be185d","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":13,"version":1},
+    {"type":"text","id":"llmt","x":38,"y":434,"width":169,"height":30,"text":"claude -p subprocess\n(qualitative analysis)","fontSize":11,"fontFamily":1,"textAlign":"center","strokeColor":"#831843","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":14,"version":1},
+
+    {"type":"arrow","id":"arr4","x":122,"y":477,"width":0,"height":48,"strokeColor":"#555","strokeWidth":2,"roughness":1,"opacity":100,"seed":15,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[0,48]]},
+
+    {"type":"rectangle","id":"localdb","x":30,"y":528,"width":185,"height":55,"backgroundColor":"#f0fdf4","strokeColor":"#15803d","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":16,"version":1},
+    {"type":"text","id":"localdbt","x":38,"y":541,"width":169,"height":30,"text":"~/.auto-sdlc/metrics.db\n(local SQLite — skip seen sessions)","fontSize":10,"fontFamily":1,"textAlign":"center","strokeColor":"#14532d","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":17,"version":1},
+
+    {"type":"arrow","id":"arr5","x":215,"y":555,"width":175,"height":0,"strokeColor":"#e53935","strokeWidth":2,"roughness":1,"opacity":100,"seed":18,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[175,0]]},
+    {"type":"text","id":"arr5label","x":230,"y":535,"width":145,"height":20,"text":"POST /reports (full JSON)","fontSize":10,"fontFamily":1,"textAlign":"center","strokeColor":"#e53935","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":19,"version":1},
+
+    {"type":"text","id":"serverlabel","x":410,"y":58,"width":220,"height":20,"text":"HEADSTORM SIDE (one server)","fontSize":11,"fontFamily":1,"textAlign":"left","strokeColor":"#888","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":20,"version":1},
+
+    {"type":"rectangle","id":"server","x":410,"y":80,"width":200,"height":80,"backgroundColor":"#dcfce7","strokeColor":"#15803d","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":21,"version":1},
+    {"type":"text","id":"servert","x":418,"y":92,"width":184,"height":55,"text":"auto-sdlc serve\nFastAPI server\nPOST /reports  |  GET /team/html","fontSize":12,"fontFamily":1,"textAlign":"center","strokeColor":"#14532d","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":22,"version":1},
+
+    {"type":"arrow","id":"arr6","x":510,"y":160,"width":0,"height":48,"strokeColor":"#555","strokeWidth":2,"roughness":1,"opacity":100,"seed":23,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[0,48]]},
+
+    {"type":"rectangle","id":"centraldb","x":410,"y":211,"width":200,"height":80,"backgroundColor":"#f0fdf4","strokeColor":"#15803d","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":24,"version":1},
+    {"type":"text","id":"centraldbt","x":418,"y":220,"width":184,"height":60,"text":"Central SQLite\n~/.auto-sdlc/server/metrics.db\nstores all dev reports\none row per session","fontSize":11,"fontFamily":1,"textAlign":"center","strokeColor":"#14532d","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":25,"version":1},
+
+    {"type":"arrow","id":"arr7","x":510,"y":292,"width":0,"height":48,"strokeColor":"#555","strokeWidth":2,"roughness":1,"opacity":100,"seed":26,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[0,48]]},
+
+    {"type":"rectangle","id":"rollup","x":410,"y":343,"width":200,"height":65,"backgroundColor":"#ede9fe","strokeColor":"#6d28d9","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":27,"version":1},
+    {"type":"text","id":"rollupt","x":418,"y":356,"width":184,"height":40,"text":"Team rollup\naggregate all devs → maturity scores","fontSize":11,"fontFamily":1,"textAlign":"center","strokeColor":"#4c1d95","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":28,"version":1},
+
+    {"type":"arrow","id":"arr8","x":510,"y":409,"width":0,"height":48,"strokeColor":"#555","strokeWidth":2,"roughness":1,"opacity":100,"seed":29,"version":1,"endArrowhead":"arrow","startArrowhead":null,"points":[[0,0],[0,48]]},
+
+    {"type":"rectangle","id":"dashboard","x":410,"y":460,"width":200,"height":60,"backgroundColor":"#fff7ed","strokeColor":"#c2410c","fillStyle":"solid","strokeWidth":2,"roughness":2,"roundness":{"type":2},"opacity":100,"seed":30,"version":1},
+    {"type":"text","id":"dashboardt","x":418,"y":473,"width":184,"height":36,"text":"GET /team/html\nTeam maturity dashboard","fontSize":12,"fontFamily":1,"textAlign":"center","strokeColor":"#7c2d12","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":31,"version":1},
+
+    {"type":"text","id":"footnote","x":30,"y":640,"width":580,"height":20,"text":"Developer installs hook once → every session auto-collected → Headstorm sees live team dashboard","fontSize":11,"fontFamily":1,"textAlign":"center","strokeColor":"#aaa","fillStyle":"solid","strokeWidth":1,"roughness":1,"opacity":100,"seed":32,"version":1}
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  }
+}

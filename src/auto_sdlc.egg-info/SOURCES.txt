@@ -1,6 +1,8 @@
+README.md
 pyproject.toml
 src/auto_sdlc/__init__.py
 src/auto_sdlc/cli.py
+src/auto_sdlc/server.py
 src/auto_sdlc.egg-info/PKG-INFO
 src/auto_sdlc.egg-info/SOURCES.txt
 src/auto_sdlc.egg-info/dependency_links.txt
@@ -12,4 +14,17 @@ src/auto_sdlc/audit/scanner.py
 src/auto_sdlc/init_wizard/__init__.py
 src/auto_sdlc/init_wizard/wizard.py
 src/auto_sdlc/logs/__init__.py
+src/auto_sdlc/logs/analyzer.py
+src/auto_sdlc/logs/export.py
+src/auto_sdlc/logs/ingest.py
+src/auto_sdlc/logs/maturity.py
+src/auto_sdlc/logs/metrics.py
+src/auto_sdlc/logs/parser.py
+src/auto_sdlc/logs/qualitative.py
+src/auto_sdlc/logs/render_html.py
 src/auto_sdlc/logs/report.py
+src/auto_sdlc/logs/scorer.py
+src/auto_sdlc/logs/team.py
+tests/test_cli.py
+tests/test_ingest.py
+tests/test_server.py

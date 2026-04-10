@@ -1,1 +1,9 @@
 click>=8.1
+
+[dev]
+httpx>=0.27
+
+[server]
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9

@@ -8,19 +8,26 @@ Built to automate the discovery process used in Auto-SDLC engagements: instead o
 
 ## Quick Start: The Web Application
 
-### One-Click Deploy (Recommended)
+### Option A: Docker (Recommended)
 
-Click the button below — Railway will automatically set up the server, add persistent storage, and configure environment variables. No manual setup required.
+```bash
+# Clone and build
+git clone https://github.com/Headstorm/auto-sdlc-baseline-tooling.git
+cd auto-sdlc-baseline-tooling
+docker build -t auto-sdlc:latest .
 
-[![Deploy to Railway](https://railway.app/button.svg)](https://railway.app/new?template=https://github.com/Headstorm/auto-sdlc-baseline-tooling)
+# Run the server
+docker run -p 8000:8080 \
+  -v reports:/data/reports \
+  -e REPORTS_DIR=/data/reports \
+  auto-sdlc:latest
 
-You'll get a live HTTPS URL (e.g., `https://auto-sdlc-production.up.railway.app`) in ~2 minutes. Then skip straight to **Step 2** below.
+# Open http://localhost:8000
+```
 
----
+Then push the image to your org's registry (Artifactory, Harbor, ECR, etc.) for deployment to internal servers or Kubernetes.
 
-### 1. Deploy the Server (Manual Alternative)
-
-If you prefer to deploy manually:
+### Option B: Local Server
 
 ```bash
 # Clone and install
@@ -28,28 +35,35 @@ git clone https://github.com/Headstorm/auto-sdlc-baseline-tooling.git
 cd auto-sdlc-baseline-tooling
 pip install -e ".[server]"
 
-# Push to Railway (auto-deploys from Procfile)
-# → Get a URL like: https://auto-sdlc-production.up.railway.app
+# Run the server
+auto-sdlc serve --port 8000
+
+# Open http://localhost:8000
 ```
 
-Railway handles the hosting; you get a live HTTPS URL with persistent storage. Free tier available.
+Share the URL with your team if on the same network (e.g., `http://YOUR_IP:8000`).
 
-### 2. Developers Submit Logs (One Command)
+### Step 2: Developers Submit Logs (One Command)
 
 Each developer runs **once**:
 
 ```bash
 auto-sdlc logs --user-id you@company.com \
-               --export-url https://your-app.railway.app/reports
+               --export-url http://YOUR_SERVER_URL:8000/reports
 ```
+
+Replace `YOUR_SERVER_URL` with:
+- `localhost` if running locally
+- Your machine's IP if sharing on the network
+- Your internal server hostname if deployed internally
 
 This reads their local `~/.claude/projects/` and sends the analysis to the server.
 
-### 3. View Team Dashboard
+### Step 3: View Team Dashboard
 
 Open the live team dashboard anytime:
 ```
-https://your-app.railway.app/team/html
+http://YOUR_SERVER_URL:8000/team/html
 ```
 
 Shows:
@@ -69,13 +83,13 @@ Shows:
 
 ### Scenario A: Quarterly Team Review (Recommended)
 
-**Goal**: Understand team AI maturity at the end of a quarter.
+**Goal**: Understand team AI maturity at the end of a quarter with a live dashboard.
 
-1. **Admin**: Deploy to Railway (one-time, 5 minutes)
+1. **Admin**: Deploy server via Docker or locally (one-time, 5 minutes)
 2. **Each developer**: Run the one-command submit (one-time, takes 30 seconds)
-3. **Team lead**: Open dashboard, present results
+3. **Team lead**: Open dashboard at `http://YOUR_SERVER:8000/team/html`, present results
 
-**Timeline**: One hour total. No ongoing overhead.
+**Timeline**: One hour total. No ongoing overhead. Reports persist on the server.
 
 ---
 
@@ -113,9 +127,9 @@ Generates a personal HTML report at `~/.auto-sdlc/reports/`.
 
 | Use Case | Method | Setup | Per-Run Effort | Best For |
 |----------|--------|-------|---|---|
-| **Live team dashboard** | Deploy server → developers submit | 5 min | 30 sec/person | Ongoing monitoring, team reviews |
-| **One-time analysis** | Bulk ingest | 0 min | 5 min (total) | Quarterly snapshots, no infrastructure |
-| **Personal report** | Local CLI | 0 min | 30 sec | Individual developer insight |
+| **Live team dashboard** | Docker/Local server → developers submit | 5 min | 30 sec/person | Team reviews, quarterly snapshots |
+| **One-time analysis** | Bulk ingest | 0 min | 5 min (total) | No server needed, offline analysis |
+| **Personal report** | Local CLI only | 0 min | 30 sec | Individual developer insight |
 
 ---
 
@@ -155,7 +169,7 @@ Every user prompt is scored 0–100 using rule-based heuristics:
 
 **Requirements**: Python 3.9+
 
-### For the Server (Recommended)
+### For the Server
 
 ```bash
 git clone https://github.com/Headstorm/auto-sdlc-baseline-tooling.git
@@ -163,9 +177,9 @@ cd auto-sdlc-baseline-tooling
 pip install -e ".[server]"
 ```
 
-Then deploy to Railway (see Quick Start above).
+Then run `auto-sdlc serve` (see Quick Start above) or use Docker.
 
-### For Local/CLI Only
+### For CLI Only (No Server)
 
 ```bash
 pip install -e .
@@ -176,7 +190,7 @@ pip install -e .
 ```bash
 pip install -e ".[server]"
 pip install pytest
-python -m pytest tests/ -v  # 94 tests
+python -m pytest tests/ -v  # 109 tests
 ```
 
 ---

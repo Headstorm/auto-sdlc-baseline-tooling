@@ -3,3 +3,9 @@ Name: auto-sdlc
 Version: 0.1.0
 Requires-Python: >=3.9
 Requires-Dist: click>=8.1
+Provides-Extra: server
+Requires-Dist: fastapi>=0.110; extra == "server"
+Requires-Dist: uvicorn>=0.29; extra == "server"
+Requires-Dist: python-multipart>=0.0.9; extra == "server"
+Provides-Extra: dev
+Requires-Dist: httpx>=0.27; extra == "dev"
