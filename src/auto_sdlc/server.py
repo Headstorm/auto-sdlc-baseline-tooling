@@ -290,6 +290,8 @@ def create_app(reports_dir):
                 continue
         report = build_team_report(user_reports)
         report["generated_at"] = datetime.now(tz=timezone.utc).isoformat()
-        return render_team_html(report)
+        # Extract just the report dicts (second element of tuples) for metrics calculation
+        report_dicts = [r for _, r in user_reports]
+        return render_team_html(report, report_dicts)
 
     return app
