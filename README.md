@@ -56,6 +56,12 @@ Shows:
 - Team maturity level (0-4)
 - Per-developer breakdown (sessions, prompt quality, maturity score)
 - Maturity by dimension (prompting, tooling, frequency, depth, efficiency)
+- **Expandable dimension dropdowns** — Click any dimension to see underlying metrics:
+  - **Prompting Sophistication**: Average quality score, % of high-quality prompts, ranges
+  - **Tooling Adoption**: Skill invocation ratio, tools used, adoption rates
+  - **Usage Frequency**: Sessions per day, activity distribution
+  - **Session Depth**: Average messages per session, conversation patterns
+  - **Context Efficiency**: Cache hit ratio, token usage patterns
 
 ---
 
@@ -284,7 +290,7 @@ src/auto_sdlc/
 python -m pytest tests/ -v
 ```
 
-94 tests covering all modules. Full CI/CD ready.
+109 tests covering all modules. Full CI/CD ready.
 
 ---
 
@@ -294,6 +300,7 @@ python -m pytest tests/ -v
 ✅ **Phase 2**: Web application (server with file upload, individual dashboards, team aggregation)
 ✅ **Phase 3**: Railway deployment (Procfile, env var support, CLI-first landing page)
 ✅ **Bulk ingest** (`auto-sdlc ingest` command for one-time team analysis)
+✅ **Dashboard dimension dropdowns** — Expandable metrics for each dimension (prompting, tooling, frequency, depth, efficiency) in both individual and team dashboards
 
 ---
 
