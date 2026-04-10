@@ -8,9 +8,19 @@ Built to automate the discovery process used in Auto-SDLC engagements: instead o
 
 ## Quick Start: The Web Application
 
-### 1. Deploy the Server
+### One-Click Deploy (Recommended)
 
-The easiest way to get started is to deploy the FastAPI application to [Railway](https://railway.app):
+Click the button below — Railway will automatically set up the server, add persistent storage, and configure environment variables. No manual setup required.
+
+[![Deploy to Railway](https://railway.app/button.svg)](https://railway.app/new?template=https://github.com/Headstorm/auto-sdlc-baseline-tooling)
+
+You'll get a live HTTPS URL (e.g., `https://auto-sdlc-production.up.railway.app`) in ~2 minutes. Then skip straight to **Step 2** below.
+
+---
+
+### 1. Deploy the Server (Manual Alternative)
+
+If you prefer to deploy manually:
 
 ```bash
 # Clone and install
