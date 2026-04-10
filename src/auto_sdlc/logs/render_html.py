@@ -13,6 +13,73 @@ def _fmt_tokens(n):
     return str(n)
 
 
+def _format_dimension_details(dimension_key, dim_data, report):
+    """Generate metrics table HTML for a dimension's collapsible details.
+
+    Args:
+        dimension_key: The dimension identifier (e.g., 'prompting_sophistication')
+        dim_data: The dimension data dict with label, level, level_label
+        report: The full report dict
+
+    Returns:
+        HTML string for the metrics table rows
+    """
+    summary = report.get("summary", {})
+    behavioral = report.get("behavioral_metrics", {})
+
+    metrics = []
+
+    if dimension_key == "prompting_sophistication":
+        metrics = [
+            ("Avg Prompt Quality", summary.get("avg_prompt_quality_score") or "—", "score (0-100)"),
+        ]
+
+    elif dimension_key == "tooling_adoption":
+        ratio = behavioral.get("skill_invocation_ratio", 0)
+        skill_pct = int(ratio * 100) if ratio else 0
+        metrics = [
+            ("Skill Invocation Ratio", "{}%".format(skill_pct), "% of all tool calls"),
+            ("Total Skill Invocations", behavioral.get("total_skill_invocations", 0), "calls"),
+            ("Total Tool Calls", behavioral.get("total_tool_calls", 0), "calls"),
+            ("Unique Tools Used", len(behavioral.get("unique_tools_used", [])), "tools"),
+        ]
+
+    elif dimension_key == "usage_frequency":
+        metrics = [
+            ("Sessions Per Day", behavioral.get("sessions_per_day") or "—", "sessions/day"),
+            ("Total Sessions", summary.get("total_sessions", 0), "sessions"),
+        ]
+
+    elif dimension_key == "session_depth":
+        metrics = [
+            ("Avg Messages Per Session", behavioral.get("avg_messages_per_session") or "—", "messages"),
+            ("Avg Session Duration", summary.get("avg_session_duration_ms") or "—", "minutes"),
+            ("Total User Messages", behavioral.get("total_user_messages", 0), "messages"),
+        ]
+
+    elif dimension_key == "context_efficiency":
+        total_tokens = summary.get("total_tokens", 0)
+        cache_read = summary.get("total_cache_read_tokens", 0)
+        cache_hit = (cache_read / total_tokens * 100) if total_tokens > 0 else 0
+        metrics = [
+            ("Cache Hit Ratio", "{:.1f}%".format(cache_hit), "% of tokens"),
+            ("Cache Read Tokens", _fmt_tokens(cache_read), "tokens"),
+            ("Total Tokens", _fmt_tokens(total_tokens), "tokens"),
+        ]
+
+    rows = ""
+    for metric_name, metric_value, metric_unit in metrics:
+        rows += (
+            "<tr>"
+            "<td style='padding:5px 10px;font-size:12px'>{name}</td>"
+            "<td style='padding:5px 10px;font-size:12px;text-align:right;font-weight:500'>{value}</td>"
+            "<td style='padding:5px 10px;font-size:11px;color:#777'>{unit}</td>"
+            "</tr>"
+        ).format(name=metric_name, value=metric_value, unit=metric_unit)
+
+    return rows
+
+
 def render_individual_html(report):
     """Render a self-contained HTML report for a single user."""
     user_id = report.get("user_id", "unknown")
@@ -27,24 +94,42 @@ def render_individual_html(report):
     overall_label = maturity.get("overall_label", "Unknown")
     maturity_color = _LEVEL_COLORS.get(overall_level, "#999")
 
-    # Maturity dimensions bars
+    # Maturity dimensions bars with collapsible metrics
     dim_rows = ""
-    for dim_data in maturity.get("dimensions", {}).values():
+    dimensions_dict = maturity.get("dimensions", {})
+    for dim_key, dim_data in dimensions_dict.items():
         pct = int(dim_data.get("level", 0) / 4 * 100)
+        metrics_rows = _format_dimension_details(dim_key, dim_data, report)
         dim_rows += (
             "<tr>"
-            "<td style='padding:6px 10px;width:220px'>{label}</td>"
-            "<td style='padding:6px 10px'>"
+            "<td colspan='3' style='padding:0'>"
+            "<details class='dimension-details'>"
+            "<summary style='padding:6px 10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center'>"
+            "<div style='display:flex;flex:1;gap:10px;align-items:center'>"
+            "<div style='width:220px'><strong>{label}</strong></div>"
+            "<div style='display:flex;align-items:center;gap:10px'>"
             "<div style='background:#eee;border-radius:4px;height:16px;width:200px'>"
             "<div style='background:#4a90d9;border-radius:4px;height:16px;width:{pct}%'></div>"
-            "</div></td>"
-            "<td style='padding:6px 10px;color:#555'>{level_label} ({level}/4)</td>"
+            "</div>"
+            "<div style='color:#555;white-space:nowrap'>{level_label} ({level}/4)</div>"
+            "</div>"
+            "</div>"
+            "<span style='font-size:11px;color:#999;margin-right:8px'>▼</span>"
+            "</summary>"
+            "<div style='padding:10px;background:#f9f9f9;border-top:1px solid #eee'>"
+            "<table style='width:100%;font-size:12px'>"
+            "{metrics_rows}"
+            "</table>"
+            "</div>"
+            "</details>"
+            "</td>"
             "</tr>"
         ).format(
             label=dim_data.get("label", ""),
             pct=pct,
             level_label=dim_data.get("level_label", ""),
             level=dim_data.get("level", 0),
+            metrics_rows=metrics_rows,
         )
 
     # Project breakdown rows
@@ -119,6 +204,10 @@ def render_individual_html(report):
     table{{border-collapse:collapse;width:100%}}
     th{{text-align:left;padding:6px 10px;border-bottom:2px solid #eee;color:#555;font-size:13px}}
     tr:nth-child(even){{background:#f9f9f9}}
+    .dimension-details{{width:100%}}
+    .dimension-details summary{{outline:none}}
+    .dimension-details summary:hover{{background:#f5f5f5}}
+    .dimension-details[open] summary{{background:#f5f5f5}}
   </style>
 </head>
 <body>

@@ -128,3 +128,38 @@ def test_render_no_qualitative_section_when_absent():
     del report["qualitative_analysis"]
     result = render_individual_html(report)
     assert "Qualitative Analysis" not in result
+
+
+def test_render_contains_dimension_details_dropdowns():
+    """Test that dimensions have collapsible details sections."""
+    report = _sample_report()
+    result = render_individual_html(report)
+    assert "<details class='dimension-details'>" in result
+    assert "<summary" in result
+
+
+def test_render_contains_metrics_tables():
+    """Test that metric details are present for dimensions."""
+    report = _sample_report()
+    result = render_individual_html(report)
+    # Check for metrics table
+    assert "Avg Prompt Quality" in result
+    assert "Skill Invocation Ratio" in result
+    assert "Sessions Per Day" in result
+    assert "Total Sessions" in result
+
+
+def test_render_contains_context_efficiency_metrics():
+    """Test that context efficiency metrics are rendered when dimension present."""
+    report = _sample_report()
+    # Add context efficiency dimension and cache tokens
+    report["maturity_scores"]["dimensions"]["context_efficiency"] = {
+        "label": "Context Efficiency",
+        "level": 2,
+        "level_label": "Intermediate",
+    }
+    report["summary"]["total_cache_read_tokens"] = 50000
+    report["summary"]["total_cache_creation_tokens"] = 10000
+    result = render_individual_html(report)
+    assert "Cache Hit Ratio" in result
+    assert "Cache Read Tokens" in result
