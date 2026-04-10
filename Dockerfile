@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements-server.txt
 
 # Copy the application code
 COPY src/ ./src
-COPY setup.py pyproject.toml ./
+COPY pyproject.toml ./
 
 # Install the auto-sdlc package itself
 RUN pip install --no-cache-dir -e .
