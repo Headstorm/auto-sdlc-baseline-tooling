@@ -163,3 +163,74 @@ def test_render_contains_context_efficiency_metrics():
     result = render_individual_html(report)
     assert "Cache Hit Ratio" in result
     assert "Cache Read Tokens" in result
+
+
+def test_render_html_escaping_xss_prevention():
+    """Test that user-provided values are HTML-escaped to prevent XSS."""
+    report = _sample_report()
+    # Add special characters that could be used in XSS attacks
+    report["user_id"] = "test<script>alert('xss')</script>"
+    report["project_breakdown"][0]["project"] = "project&<script>"
+    report["qualitative_analysis"]["narrative"] = "test<img src=x onerror='alert(1)'>"
+    report["qualitative_analysis"]["workflow_patterns"]["workflows"][0]["pattern"] = "pattern<svg>"
+    report["qualitative_analysis"]["anti_patterns"]["anti_patterns"][0]["name"] = "name&quot;script"
+
+    result = render_individual_html(report)
+
+    # Verify special characters are escaped, not rendered as HTML
+    assert "&lt;script&gt;" in result
+    assert "&amp;" in result
+    assert "<script>" not in result
+    # Verify safe content is still rendered
+    assert "Auto-SDLC Developer Report" in result
+
+
+def test_render_with_zero_total_tokens():
+    """Test that cache hit ratio handles zero total tokens without division by zero."""
+    report = _sample_report()
+    # Add context efficiency dimension with zero tokens
+    report["maturity_scores"]["dimensions"]["context_efficiency"] = {
+        "label": "Context Efficiency",
+        "level": 2,
+        "level_label": "Intermediate",
+    }
+    report["summary"]["total_tokens"] = 0
+    report["summary"]["total_cache_read_tokens"] = 0
+
+    # Should not raise ZeroDivisionError
+    result = render_individual_html(report)
+    assert isinstance(result, str)
+    assert "Cache Hit Ratio" in result
+    assert "0.0%" in result
+
+
+def test_render_with_missing_metric_values():
+    """Test that missing metric values default to em-dash."""
+    report = _sample_report()
+    # Remove optional metric values
+    report["summary"]["avg_session_duration_ms"] = None
+    report["behavioral_metrics"]["sessions_per_day"] = None
+    report["behavioral_metrics"]["avg_messages_per_session"] = None
+    report["project_breakdown"][0]["avg_prompt_quality"] = None
+
+    result = render_individual_html(report)
+    # Verify em-dashes are rendered for missing values
+    assert "—" in result
+    # Verify the report still renders successfully
+    assert "Auto-SDLC Developer Report" in result
+
+
+def test_render_with_unrecognized_dimension():
+    """Test that unrecognized dimensions have graceful fallback."""
+    report = _sample_report()
+    # Add a custom/unrecognized dimension
+    report["maturity_scores"]["dimensions"]["custom_dimension"] = {
+        "label": "Custom Metric",
+        "level": 2,
+        "level_label": "Good",
+    }
+
+    result = render_individual_html(report)
+    # Should render without error and include fallback message
+    assert "Metrics not available" in result
+    assert "Custom Metric" in result

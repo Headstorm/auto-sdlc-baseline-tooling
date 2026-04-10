@@ -1,5 +1,7 @@
 """Individual HTML report renderer for user analytics."""
 
+from html import escape
+
 _LEVEL_COLORS = {0: "#e74c3c", 1: "#e67e22", 2: "#f1c40f", 3: "#2ecc71", 4: "#27ae60"}
 
 
@@ -11,6 +13,34 @@ def _fmt_tokens(n):
     if n >= 1_000:
         return "{:.0f}K".format(n / 1_000)
     return str(n)
+
+
+def _format_metric_row(name, value, unit):
+    """Build an HTML table row for a metric with escaped values.
+
+    Args:
+        name: Metric name (will be HTML-escaped)
+        value: Metric value (will be HTML-escaped)
+        unit: Unit label (will be HTML-escaped)
+
+    Returns:
+        HTML table row string
+    """
+    # Ensure value has a default fallback
+    if value is None:
+        value = "—"
+
+    return (
+        "<tr>"
+        "<td style='padding:5px 10px;font-size:12px'>{name}</td>"
+        "<td style='padding:5px 10px;font-size:12px;text-align:right;font-weight:500'>{value}</td>"
+        "<td style='padding:5px 10px;font-size:11px;color:#777'>{unit}</td>"
+        "</tr>"
+    ).format(
+        name=escape(str(name)),
+        value=escape(str(value)),
+        unit=escape(str(unit))
+    )
 
 
 def _format_dimension_details(dimension_key, dim_data, report):
@@ -67,15 +97,15 @@ def _format_dimension_details(dimension_key, dim_data, report):
             ("Total Tokens", _fmt_tokens(total_tokens), "tokens"),
         ]
 
+    else:
+        # Fallback for unrecognized dimensions
+        metrics = [
+            ("Metrics", "Metrics not available", ""),
+        ]
+
     rows = ""
     for metric_name, metric_value, metric_unit in metrics:
-        rows += (
-            "<tr>"
-            "<td style='padding:5px 10px;font-size:12px'>{name}</td>"
-            "<td style='padding:5px 10px;font-size:12px;text-align:right;font-weight:500'>{value}</td>"
-            "<td style='padding:5px 10px;font-size:11px;color:#777'>{unit}</td>"
-            "</tr>"
-        ).format(name=metric_name, value=metric_value, unit=metric_unit)
+        rows += _format_metric_row(metric_name, metric_value, metric_unit)
 
     return rows
 
@@ -125,9 +155,9 @@ def render_individual_html(report):
             "</td>"
             "</tr>"
         ).format(
-            label=dim_data.get("label", ""),
+            label=escape(dim_data.get("label", "")),
             pct=pct,
-            level_label=dim_data.get("level_label", ""),
+            level_label=escape(dim_data.get("level_label", "")),
             level=dim_data.get("level", 0),
             metrics_rows=metrics_rows,
         )
@@ -143,10 +173,10 @@ def render_individual_html(report):
             "<td style='padding:5px 10px;text-align:right'>{quality}</td>"
             "</tr>"
         ).format(
-            project=p.get("project", "unknown"),
+            project=escape(p.get("project", "unknown")),
             sessions=p.get("sessions", 0),
             tokens=_fmt_tokens(p.get("total_tokens")),
-            quality=p.get("avg_prompt_quality") if p.get("avg_prompt_quality") is not None else "—",
+            quality=escape(str(p.get("avg_prompt_quality") or "—")),
         )
 
     # Qualitative section
@@ -159,13 +189,13 @@ def render_individual_html(report):
         wf_items = "".join(
             "<li style='padding:4px 0;border-bottom:1px solid #f0f0f0'>"
             "<strong>{}</strong> — {}</li>".format(
-                w.get("pattern", ""), w.get("evidence", "")
+                escape(w.get("pattern", "")), escape(w.get("evidence", ""))
             ) for w in workflows
         )
         ap_items = "".join(
             "<li style='padding:4px 0;border-bottom:1px solid #f0f0f0'>"
             "<strong>{}</strong>: {}</li>".format(
-                a.get("name", ""), a.get("recommendation", "")
+                escape(a.get("name", "")), escape(a.get("recommendation", ""))
             ) for a in anti_patterns
         )
 
@@ -183,7 +213,7 @@ def render_individual_html(report):
         <ul style="list-style:none;padding:0">{ap_items}</ul>
       </div>
     </div>
-  </div>""".format(narrative=narrative, wf_items=wf_items, ap_items=ap_items)
+  </div>""".format(narrative=escape(narrative), wf_items=wf_items, ap_items=ap_items)
 
     skill_pct = int((behavioral.get("skill_invocation_ratio") or 0) * 100)
 
@@ -241,15 +271,15 @@ def render_individual_html(report):
 {qual_html}
 </body>
 </html>""".format(
-        user_id=user_id,
+        user_id=escape(user_id),
         generated_at=generated_at[:19].replace("T", " ") if generated_at else "",
         total_sessions=summary.get("total_sessions", 0),
         total_tokens=_fmt_tokens(summary.get("total_tokens")),
-        avg_quality=summary.get("avg_prompt_quality_score") or "—",
+        avg_quality=escape(str(summary.get("avg_prompt_quality_score") or "—")),
         skill_pct=skill_pct,
-        spd=behavioral.get("sessions_per_day") or "—",
+        spd=escape(str(behavioral.get("sessions_per_day") or "—")),
         maturity_color=maturity_color,
-        overall_label=overall_label,
+        overall_label=escape(overall_label),
         dim_rows=dim_rows,
         proj_rows=proj_rows,
         qual_html=qual_html,
