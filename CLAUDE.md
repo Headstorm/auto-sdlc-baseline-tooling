@@ -2,11 +2,21 @@
 
 ## Vision
 
-Map Claude Code session logs to the **Ideal Development Team** framework (4 dimensions, 12 sub-dimensions, L1-L4 scale) to measure team AI maturity beyond behavioral metrics.
+**Generate professional PDF assessment reports** that measure team AI maturity against the **Ideal Development Team** framework (4 dimensions, 12 sub-dimensions, L1-L4 scale).
 
-Current state: We measure *how developers use Claude Code* (prompt quality, tool adoption, session depth, etc.)
+**Current state:** Auto-SDLC measures *how developers use Claude Code* (prompt quality, tool adoption, session depth, etc.)
 
-Target state: We measure *what capabilities the team has built* using AI, mapped to business outcomes and team practices.
+**Target state:** Auto-SDLC generates **holistic maturity reports** (similar to `ideal-team-vision.pdf`) that:
+- Tell a coherent story of team/individual AI capability
+- Combine quantitative signals (logs) with qualitative evidence (configs, capabilities, interviews)
+- Show where the team stands, what's working, what's at risk, and how to reach next level
+- Drive strategic decisions about AI adoption and governance
+
+**Report Types:**
+1. **Team AI Maturity Report** (8-12 pages) — Leadership view of team AI capability, governance, integration, ownership
+2. **Individual Developer Profile** (4-6 pages) — Developer's usage patterns, strengths, growth areas, fit with team baseline
+
+**See `/docs/REPORT_STYLE_OUTLINE.md` for the complete report structure, samples, and design guidelines.**
 
 ---
 
@@ -789,9 +799,30 @@ The assessor is the expert. The tool is a facilitator.
 
 ---
 
+## All Phases Serve the PDF Report Goal
+
+Every phase of the implementation roadmap feeds directly into the **Assessment Report** that lands in leadership/developer hands:
+
+- **Phase 1 (Extract Evidence):** Populate the "Evidence from Logs/Configs/Capabilities" sections of the report
+- **Phase 2 (Assessment Interview):** Generate the "Assessment Question Responses" sections
+- **Phase 3 (Artifact Verification):** Source the "Appendix: Config File Excerpts" and verify claims
+- **Phase 4 (Synthesis):** Write the executive summary and roadmap narrative
+- **Phase 5 (Deep Analysis):** Populate detailed metrics tables and dimension deep-dives
+
+**Output:** A professional, PDF-formatted report that answers:
+- ✅ Where are we? (Current maturity level with evidence)
+- ✅ Why? (What behaviors, practices, infrastructure support this level)
+- ✅ What's working? (Strengths to build on)
+- ✅ What's at risk? (Gaps and vulnerabilities)
+- ✅ How do we progress? (Specific steps to L3, with effort estimates)
+
+The report is **not a dashboard, metric collection, or auto-score.** It's a narrative document that helps teams make strategic decisions about AI adoption and governance.
+
+---
+
 ## Mapping Between Auto-SDLC Metrics and Maturity Dimensions
 
-How existing auto-sdlc measurements feed the 12-dimension scorecard:
+How existing auto-sdlc measurements feed the 12-dimension scorecard and eventually the report:
 
 | Auto-SDLC Metric | Feeds Into Dimension | How It's Used |
 |---|---|---|
