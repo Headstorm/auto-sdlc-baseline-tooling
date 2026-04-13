@@ -743,7 +743,7 @@ This feeds into:
 
 **This tool should make assessment easier, not replace it.**
 
-A good assessment:
+A good assessment with **full data** (logs + configs + capabilities):
 1. **Starts with evidence:** "Your logs show 72% Claude Code adoption"
 2. **Asks questions:** "Is that by choice or enforcement? How are tools managed?"
 3. **Checks artifacts:** "Show me your tool selection policy or CLAUDE.md"
@@ -752,6 +752,168 @@ A good assessment:
 **Not:** "Your logs show 72% adoption = L2 score."
 
 The assessor is the expert. The tool is a facilitator.
+
+---
+
+## Scoring with Incomplete Data
+
+### When You Only Have Logs
+
+**Reality:** In early deployments, you may only have access to Claude Code session logs. Configs (CLAUDE.md, AGENTS.md, .rules) and capabilities (custom skills, MCP integrations) may not be available.
+
+**Solution:** Make an **educated guess** at the maturity score, but **clearly flag the limitations.**
+
+**Example:**
+
+| Dimension | With Full Data | With Logs Only | Confidence |
+|-----------|---|---|---|
+| **AI Tool Adoption** | L2 (72% adoption + documented tool policy + no fragmentation) | **L1.5** (72% adoption, but unknown if intentional or ad-hoc) | **Medium** |
+| **Prompt & Context Engineering** | L2 (CLAUDE.md in 82% of repos + 73 avg quality) | **L1.5** (73 avg quality, but no visibility to shared context strategy) | **Low** |
+| **Agent Configuration** | L2 (3 custom skills + error handling + documented in AGENTS.md) | **L1** (Unknown if custom skills exist; logs show /review usage but can't distinguish) | **Low** |
+| **Quality Controls** | L2 (80% /review adoption + .rules enforcement + linting in CI) | **L2** (/review in 80% of sessions = strong signal; can infer practices) | **High** |
+
+**How to Score with Logs Only:**
+
+1. **Identify which dimensions have strong log signals:**
+   - ✅ **AI Tool Adoption:** Tool usage patterns visible in logs
+   - ✅ **Quality Controls:** /review adoption, test generation % visible
+   - ✅ **Usage Frequency:** Sessions/day visible
+   - ✅ **Session Depth:** Messages per session visible
+   - ⚠️ **Prompt & Context Engineering:** Partial (quality score visible, but shared context strategy unknown)
+
+2. **Identify which dimensions are nearly invisible:**
+   - ❌ **Accountability & Ownership:** Can infer champion candidacy from patterns, but can't confirm
+   - ❌ **Ways of Working:** Can't verify if workflows are documented
+   - ❌ **Security & Compliance:** Can infer some data handling patterns, but can't confirm policies
+   - ❌ **Cross-System Connectivity:** Can see MCP invocations, but can't confirm if intentional or all available integrations
+   - ❌ **Scalability & Knowledge Transfer:** Can measure new dev ramp time, but can't see onboarding materials
+
+3. **Score conservatively:**
+   - If logs show strong signal → estimate at rubric level
+   - If logs are unclear or missing → estimate **one level lower** (conservative)
+   - Example: "Logs show 80% /review adoption, but without CLAUDE.md visibility, I estimate L1.5-L2 (not L2+)"
+
+4. **Flag confidence explicitly:**
+   ```json
+   {
+     "dimension": "Quality Controls",
+     "score": 2.0,
+     "confidence": "High - /review adoption visible in logs",
+     "data_sources": ["logs"],
+     "missing_data": [
+       "Can't confirm linting rules in .rules file",
+       "Can't verify PR review checklist is documented",
+       "Can't see CI/CD enforcement"
+     ],
+     "note": "Estimate may increase to L2.5 once configs checked"
+   }
+   ```
+
+---
+
+### What to Say in the Report When Data is Incomplete
+
+**Section: "About This Assessment"**
+
+> This assessment is based on Claude Code session logs only. We **did not** analyze team configuration files (CLAUDE.md, AGENTS.md, .rules, settings.json) or measure deployed capabilities (custom skills, MCP integrations, plugins).
+>
+> **As a result:**
+> - ✅ Dimensions with strong behavioral signals (Quality Controls, Usage Frequency, Session Depth) are assessed with **High confidence**
+> - ⚠️ Dimensions requiring documentation or infrastructure evidence (Accountability & Ownership, Governance, Integration) are assessed with **Low confidence** and should be **verified in follow-up interviews**
+>
+> **To increase confidence, we recommend:**
+> 1. Sharing CLAUDE.md, AGENTS.md, .rules files for review
+> 2. Documenting which skills, commands, and MCP integrations are deployed
+> 3. Brief interview with AI champion on governance and ways of working
+>
+> This assessment is a **baseline view**. A full maturity assessment with all data sources would likely refine scores, especially in governance and ownership dimensions.
+
+---
+
+### Example: Logs-Only vs. Full Assessment
+
+**Team A: Logs-Only Assessment**
+```
+AI Tool Adoption: L1.5 (conservative) - 72% adoption visible, but policies unknown
+Prompt & Context Engineering: L1.5 - Quality is good (73), but shared context strategy unknown
+Agent Configuration: L1 - /review usage visible, but can't confirm custom skills exist
+CI/CD Integration: L2 - /review in 80%, test generation visible
+Ticketing & Planning: L1 - No JIRA integrations visible in logs
+Cross-System Connectivity: L1 - No MCP integration signals detected
+Quality Controls: L2 - /review + test patterns visible
+Security & Compliance: L1 - Can't assess without policy documentation
+Measurement & KPIs: L1.5 - Adoption metrics visible, but no formal tracking visible
+Ways of Working: L1 - Can't assess without documentation
+Accountability & Ownership: L1.5 - Alice shows champion patterns, but informal
+Scalability & Knowledge Transfer: L1.5 - New dev ramp visible (2-3 weeks), but materials unknown
+
+OVERALL MATURITY (logs-only estimate): L1.3 ± 0.5
+Confidence: Low-to-Medium
+```
+
+**Team A: Full Assessment (After Adding Configs + Capabilities)**
+```
+AI Tool Adoption: L2 - 72% adoption + documented policy + centralized licensing confirmed
+Prompt & Context Engineering: L2 - 73 quality + CLAUDE.md in 82% repos + templates maintained
+Agent Configuration: L2 - 3 custom skills deployed + documented in AGENTS.md
+CI/CD Integration: L2 - /review + linting gates in .rules confirmed
+Ticketing & Planning: L1.5 - No JIRA integration yet (on roadmap)
+Cross-System Connectivity: L1.5 - 1 of 4 planned MCP integrations active
+Quality Controls: L2 - /review practices + PR checklist in CLAUDE.md
+Security & Compliance: L1.5 - Informal policy; needs documentation
+Measurement & KPIs: L1.5 - Metrics tracked, but no formal dashboard
+Ways of Working: L2 - "AI Ways of Working" doc exists, current
+Accountability & Ownership: L2 - Alice formally named as champion; responsibilities documented
+Scalability & Knowledge Transfer: L2 - New dev ramp 2-3 weeks; onboarding materials exist
+
+OVERALL MATURITY (full data): L1.8 ± 0.3
+Confidence: High
+```
+
+**Difference:** Logs-only estimated L1.3; full data showed L1.8. Key gaps were governance and infrastructure visibility.
+
+---
+
+### Incremental Data Collection Strategy
+
+If you don't have all three data sources initially, collect them progressively:
+
+**Week 1:** Extract logs (baseline assessment, Logs-Only)  
+**Week 2:** Collect configs (CLAUDE.md, AGENTS.md, .rules, settings.json via git or team upload)  
+**Week 3:** Inventory capabilities (custom skills, MCP integrations via CLI or manual list)  
+**Week 4:** Conduct interviews (assessment questions, verify findings, refine scores)  
+
+**Report improvements with each addition:**
+- After Logs: "Baseline estimate; medium confidence"
+- After Configs: "Major gaps confirmed; low confidence in execution/governance"
+- After Capabilities: "Infrastructure picture clearer; scores refining"
+- After Interviews: "Holistic view; high confidence; ready for roadmap"
+
+---
+
+### Transparency in Reporting
+
+**Always include a "Data Sources & Limitations" section in the report:**
+
+```
+ASSESSMENT DATA SOURCES
+├── Logs: ✅ 6 weeks of session data from 18 developers
+├── Configs: ⚠️ Partial (CLAUDE.md collected; AGENTS.md pending; .rules not found)
+└── Capabilities: ❌ Not collected (request from Alice)
+
+CONFIDENCE BY DIMENSION
+├── High (logs visible): Quality Controls, Usage Frequency, Session Depth, AI Tool Adoption
+├── Medium (partial configs): Prompt & Context Engineering, Governance
+└── Low (no data): Accountability & Ownership, Scalability & Knowledge Transfer
+
+NEXT STEPS TO INCREASE CONFIDENCE
+1. Share AGENTS.md if it exists
+2. Inventory deployed custom skills and MCP integrations
+3. Brief interview with AI champion (1 hour)
+4. Review CLAUDE.md together
+```
+
+This transparency builds trust: "We know what we know, and we're honest about what we don't."
 
 ---
 
