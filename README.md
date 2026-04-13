@@ -311,20 +311,22 @@ python -m pytest tests/ -v
 ## What's Implemented
 
 ✅ **Phase 1**: Core analysis pipeline (parser, scorer, metrics, maturity, report generation, HTML rendering)
-✅ **Phase 2**: Web application (server with file upload, individual dashboards, team aggregation)
-✅ **Phase 3**: Railway deployment (Procfile, env var support, CLI-first landing page)
+✅ **Phase 2**: Web application (server with CLI logs submit, individual dashboards, team aggregation)
 ✅ **Bulk ingest** (`auto-sdlc ingest` command for one-time team analysis)
 ✅ **Dashboard dimension dropdowns** — Expandable metrics for each dimension (prompting, tooling, frequency, depth, efficiency) in both individual and team dashboards
+✅ **AI Maturity Assessment Framework** (see CLAUDE.md) — 4 dimensions, 12 sub-dimensions, L1-L4 rubric for measuring team AI capability against the Ideal Development Team model
 
 ---
 
 ## Coming Soon
 
+- **PDF Report Generation** — Professional Team AI Maturity Reports and Individual Developer Profiles matching Auto-SDLC assessment framework
+- **Assessment Evidence Integration** — Map logs + configs (CLAUDE.md, AGENTS.md, .rules) + capabilities (custom skills, MCP integrations) to maturity dimensions
+- **Cloud Deployment** — Simple one-click deployment option (currently: Docker + local server recommended)
 - **`auto-sdlc init`** — Interactive wizard to generate CLAUDE.md, AGENTS.md, .rules config
 - **`auto-sdlc audit`** — Scan installed Claude Code capabilities against baseline
 - **SQLite persistence** — Store reports in database for history/trending instead of files
 - **Workflow extraction** — Detect multi-session patterns, abandoned tasks, rework cycles
-- **Discovery mapping** — Map maturity criteria to Auto-SDLC discovery questions
 - **Auto-sync hook** — Claude Code Stop hook that auto-POSTs logs after every session (zero ongoing effort after setup)
 - **Trending dashboard** — Show maturity changes over time per developer and team
 - **Gemini/other LLM support** — Use alternative LLMs for qualitative analysis
