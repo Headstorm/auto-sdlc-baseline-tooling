@@ -65,6 +65,7 @@ class ReportGenerationPipeline:
         assessment_responses: Optional[str] = None,
         team_baseline: Optional[str] = None,
         output_dir: Optional[str] = None,
+        progress_callback=None,
     ) -> Tuple[Union[TeamReport, IndividualReport], Path]:
         """
         Generate a complete report (team or individual) for a project.
@@ -76,6 +77,10 @@ class ReportGenerationPipeline:
             assessment_responses: Optional path to JSON file with assessment answers
             team_baseline: Optional path to JSON file with team average scores (for individual reports)
             output_dir: Where to save PDF (default: ~/.auto-sdlc/reports/)
+            progress_callback: Optional callable(phase: int, label: str, pct: float)
+                called at the start (pct=0.0) and end (pct=1.0) of each phase.
+                Phases: 1=Extracting evidence, 2=Scoring maturity,
+                3=Building report, 4=Rendering PDF
 
         Returns:
             Tuple of (Report object, Path to generated PDF)
@@ -103,7 +108,9 @@ class ReportGenerationPipeline:
         self.config_extractor = ConfigEvidenceExtractor(project_path)
         self.capability_extractor = CapabilityEvidenceExtractor(project_path)
 
-        # Step 1: Extract evidence from all sources
+        # Phase 1: Extract evidence from all sources
+        if progress_callback:
+            progress_callback(1, "Extracting evidence", 0.0)
         print("✓ Extracting evidence from logs...")
         log_evidence = self.log_extractor.extract_from_project(project_path)
 
@@ -113,7 +120,6 @@ class ReportGenerationPipeline:
         print("✓ Scanning capabilities (skills, agents, MCPs)...")
         capability_evidence = self.capability_extractor.extract_from_project(project_path)
 
-        # Step 2: Triangulate evidence sources
         print("✓ Triangulating evidence sources...")
         triangulated_evidence = self.triangulator.triangulate_all(
             log_evidence, config_evidence, capability_evidence
@@ -125,20 +131,27 @@ class ReportGenerationPipeline:
             "configs": len(config_evidence) > 0,
             "capabilities": len(capability_evidence) > 0,
         }
+        if progress_callback:
+            progress_callback(1, "Extracting evidence", 1.0)
 
-        # Step 3: Load and process assessment responses
+        # Phase 2: Load assessment responses and score all dimensions
+        if progress_callback:
+            progress_callback(2, "Scoring maturity", 0.0)
         print("✓ Loading assessment questions...")
         assessment_responses_list = self._load_assessment_responses(
             assessment_responses
         )
 
-        # Step 4: Score all dimensions
         print("✓ Scoring dimensions...")
         dimension_scores = self.scorer.score_all_dimensions(
             triangulated_evidence, assessment_responses_list
         )
+        if progress_callback:
+            progress_callback(2, "Scoring maturity", 1.0)
 
-        # Step 5: Generate roadmaps for all dimensions
+        # Phase 3: Generate roadmaps and build report
+        if progress_callback:
+            progress_callback(3, "Building report", 0.0)
         print("✓ Generating roadmaps...")
         # Extract dimension levels for roadmap generation
         dimension_levels = {
@@ -148,7 +161,6 @@ class ReportGenerationPipeline:
         # Convert list to dict for easier access
         roadmaps = {rm.dimension: rm for rm in roadmap_list}
 
-        # Step 6: Build report based on type
         print("✓ Building report...")
         if report_type == "team":
             team_metadata = {
@@ -185,10 +197,16 @@ class ReportGenerationPipeline:
             )
         else:
             raise ValueError(f"Invalid report_type: {report_type}. Must be 'team' or 'individual'.")
+        if progress_callback:
+            progress_callback(3, "Building report", 1.0)
 
-        # Step 7: Render to PDF
+        # Phase 4: Render to PDF
+        if progress_callback:
+            progress_callback(4, "Rendering PDF", 0.0)
         print("✓ Rendering PDF...")
         pdf_path = self._render_pdf(report, user_id, output_dir)
+        if progress_callback:
+            progress_callback(4, "Rendering PDF", 1.0)
 
         print(f"\nReport saved to: {pdf_path}")
         return report, pdf_path

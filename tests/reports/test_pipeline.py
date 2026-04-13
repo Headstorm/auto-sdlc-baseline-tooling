@@ -430,3 +430,54 @@ class TestPipelineOutputFileNaming:
                 # Should create in ~/.auto-sdlc/reports/
                 expected_base = Path(tmpdir) / ".auto-sdlc" / "reports"
                 assert str(pdf_path).startswith(str(expected_base))
+
+
+class TestProgressCallback:
+    """Test progress callback invocation during report generation."""
+
+    def test_progress_callback_invoked_all_phases(self, temp_project_dir, output_dir):
+        """Test that progress callback is called at start and end of each phase."""
+        pipeline = ReportGenerationPipeline()
+        calls = []
+
+        def callback(phase, label, pct):
+            calls.append((phase, label, pct))
+
+        pipeline.generate_report(
+            user_id="cb_team",
+            project_path=str(temp_project_dir),
+            report_type="team",
+            output_dir=output_dir,
+            progress_callback=callback,
+        )
+
+        # Expect exactly 8 calls: start+end for each of 4 phases
+        assert len(calls) == 8
+
+        # Verify each phase fires start (0.0) then end (1.0)
+        expected = [
+            (1, "Extracting evidence", 0.0),
+            (1, "Extracting evidence", 1.0),
+            (2, "Scoring maturity", 0.0),
+            (2, "Scoring maturity", 1.0),
+            (3, "Building report", 0.0),
+            (3, "Building report", 1.0),
+            (4, "Rendering PDF", 0.0),
+            (4, "Rendering PDF", 1.0),
+        ]
+        assert calls == expected
+
+    def test_no_progress_callback_still_works(self, temp_project_dir, output_dir):
+        """Test that omitting progress_callback leaves existing behaviour unchanged."""
+        pipeline = ReportGenerationPipeline()
+
+        report, pdf_path = pipeline.generate_report(
+            user_id="no_cb_team",
+            project_path=str(temp_project_dir),
+            report_type="team",
+            output_dir=output_dir,
+            # progress_callback intentionally omitted
+        )
+
+        assert isinstance(report, TeamReport)
+        assert pdf_path.exists()
