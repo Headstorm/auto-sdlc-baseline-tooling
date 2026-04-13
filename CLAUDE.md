@@ -360,9 +360,58 @@ These questions help verify maturity levels. They should be asked during team in
 
 ---
 
+## Critical Philosophy: Holistic Understanding Over Numbers
+
+**The 12 dimensions cannot be cleanly scored from numbers alone.**
+
+A team can have:
+- ✅ 70% of developers using Claude Code (looks like L2 adoption)
+- ✅ High average prompt quality (looks like L2 engineering)
+- ✅ 80% /review adoption (looks like L2 CI/CD)
+
+...yet be L1 overall because:
+- ❌ No CLAUDE.md (shared context missing)
+- ❌ No documented policy (governance absent)
+- ❌ No AI champion (ownership missing)
+- ❌ No documented ways of working (processes ad-hoc)
+
+**Conversely, a team with lower quantitative metrics can be L2+ if:**
+- ✅ They have a strong CLAUDE.md strategy
+- ✅ They have a designated AI champion and explicit responsibilities
+- ✅ They have documented workflows and escalation paths
+- ✅ They have a security policy and approval gates
+
+**The point:** Quantitative signals are supporting evidence, not the score itself. The real maturity comes from:
+1. **Governance** — Are practices documented and enforced?
+2. **Ownership** — Is someone responsible and accountable?
+3. **Integration** — Are workflows designed for AI from the start?
+4. **Consistency** — Are practices team-wide or individual?
+5. **Intentionality** — Is AI use strategic, or ad-hoc?
+
+### How to Use This Framework
+
+**Don't:** Try to auto-score all 12 dimensions from log data alone.
+
+**Do:** Use logs as supporting evidence, then:
+1. Ask the qualitative assessment questions
+2. Interview the team about practices, policies, and ownership
+3. Check artifacts (CLAUDE.md, PR checklists, onboarding docs)
+4. Synthesize a holistic maturity rating
+
+**The output should answer:**
+- "What is this team intentionally doing with AI?"
+- "Who owns AI outcomes?"
+- "Are practices documented or tribal?"
+- "Are workflows designed for AI, or is AI bolted on?"
+- "What would it take to reach the next level?"
+
+Not just: "They score 2.3 on dimension X."
+
+---
+
 ## Detecting Maturity from Claude Code Logs
 
-### Quantitative Signals (Direct from JSON Report)
+### Quantitative Signals (Supporting Evidence Only)
 
 | Sub-Dimension | Claude Log Metric | L1 Range | L2 Range | L3 Range | L4 Range |
 |---|---|---|---|---|---|
@@ -457,112 +506,181 @@ These questions help verify maturity levels. They should be asked during team in
 
 ## Implementation Roadmap
 
-### Phase 1: Extract Qualitative Log Signals
-Add detection logic to the log analyzer to extract:
-- **Tool diversity:** Which tools are invoked; how many per developer
-- **Command usage:** /review, /commit, /plan frequency and adoption
-- **Context patterns:** CLAUDE.md loading, architecture doc refs, early-session behavior
-- **MCP/Integration invocations:** GitHub, JIRA, Slack, doc lookups per session
-- **Testing signals:** Test generation %, coverage validation, edge case detection
-- **Data handling:** Scan for PII, API keys, sensitive patterns
-- **Session structure:** Opening protocol, plan mode %, closing cleanup
-- **Consistency metrics:** Prompt variation across team, champion detection
+**Core Principle:** The goal is to enable better qualitative assessment and discovery, not to automate scoring. Logs provide supporting evidence; people provide understanding.
 
-**Output:** Add to individual/team JSON report:
+### Phase 1: Extract Supporting Evidence from Logs
+Add detection logic to the log analyzer to surface patterns that facilitate assessment questions:
+
+**Evidence Categories:**
+- **Tool diversity:** Which tools are invoked; consistency across team
+- **Command usage:** /review, /commit, /plan frequency (signals of practice)
+- **Context patterns:** CLAUDE.md loading, early-session behavior (signals of discipline)
+- **MCP/Integration invocations:** Cross-system connectivity evidence
+- **Testing signals:** Test generation %, coverage validation
+- **Data handling:** Scan for PII/sensitive patterns (compliance signals)
+- **Session structure:** Opening protocol consistency (signals process maturity)
+- **Consistency metrics:** Prompt variation across team (signals shared standards)
+
+**Output:** Evidence dashboard per dimension
 ```json
 {
   "dimension_signals": {
     "ai_tool_adoption": {
-      "tools_used": ["claude_code", "copilot"],
-      "tool_diversity": 2,
-      "team_adoption_rate": 0.72
+      "tools_detected": ["claude_code", "copilot"],
+      "adoption_rate": "72% of team",
+      "tool_consistency": "High (99% Claude Code)"
     },
     "prompt_context_engineering": {
-      "avg_prompt_quality": 73,
-      "file_ref_percentage": 0.58,
+      "avg_quality": 73,
       "claude_md_detected": true,
-      "context_reuse_pattern": "high"
+      "context_loading_pattern": "Consistent at session start",
+      "architectural_refs": "42% of prompts"
     },
-    "agent_configuration": {
-      "skill_invocation_ratio": 0.24,
-      "unique_skills_used": ["review", "commit", "plan"],
-      "custom_skills": 1
-    },
-    ...
+    "accountability_ownership": {
+      "claude_md_authors": ["alice@co.com", "bob@co.com"],
+      "champion_candidate": "alice@co.com (high consistency, mentorship signals)",
+      "prompt_library_curator": "Detected patterns suggest responsibility here"
+    }
   }
 }
 ```
 
-### Phase 2: Infer L1-L4 Score for Each Sub-Dimension
-Create a scoring engine that:
-1. Collects quantitative + qualitative signals from Phase 1
-2. Maps each signal to the rubric (L1-L4 thresholds in the table above)
-3. Synthesizes into a confidence-weighted score
-4. Flags uncertainties (needs manual verification via assessment questions)
+**Purpose:** Provide assessors with concrete observations to probe deeper, not to auto-score.
 
-**Output:** Add to individual/team report:
+### Phase 2: Generate Assessment Question Facilitator
+Build a guided interview UI that:
+1. Shows relevant evidence from logs for each question
+2. Asks the 50 assessment questions from the template (organized by dimension)
+3. Allows the assessor to record answers (L1-L4 per question)
+4. Flags contradictions (logs show high /review adoption, but team says "no policy")
+
+**Output:** Qualitative assessment responses
 ```json
 {
-  "maturity_by_dimension": {
+  "assessment_responses": {
     "ai_tool_adoption": {
-      "score": 2.0,
-      "level": "Integrated",
-      "confidence": "High",
-      "evidence": ["72% team adoption", "Claude Code + Copilot standardized", "Centralized licensing"],
-      "gaps": ["No multi-agent orchestration yet"],
-      "next_level": "Introduce toolchain orchestration for different workflows"
-    },
-    ...
+      "Q: Who decides which AI tool to use?": "Tech lead recommends Claude Code, enforced in PR guidelines",
+      "Q: Are licenses managed centrally?": "Yes, via IT. All 18 devs have Claude Code + Copilot",
+      "INFERRED_LEVEL": 2,
+      "CONFIDENCE": "High - evidence aligns with L2 requirements"
+    }
   }
 }
 ```
 
-### Phase 3: Generate Interactive Assessment Report
-Build a new report type that:
-- Shows all 12 sub-dimensions with L1-L4 scores
-- Highlights L2 achievement vs. gaps
-- Lists evidence from logs + recommended assessment questions
-- Provides improvement roadmap (what to do to reach next level)
-- Includes team-wide gaps analysis
+### Phase 3: Artifact Verification Layer
+Check for tangible evidence of maturity:
+- **CLAUDE.md presence + quality:** Does it exist? Is it current? What sections?
+- **Documentation:** "AI Ways of Working" doc, PR review checklist, policy doc
+- **Process artifacts:** Onboarding guide, prompt library, escalation paths
+- **Ownership signals:** Named champion in team roster, responsibilities defined
 
-**Dashboard view:**
+**Output:** Artifact checklist per dimension
+```json
+{
+  "artifacts": {
+    "prompt_context_engineering": {
+      "claude_md_exists": true,
+      "repos_with_claude_md": "18/22 (82%)",
+      "claude_md_quality": "High - includes architecture, conventions, gotchas",
+      "last_updated": "2026-04-08",
+      "evidence": "✅ L2 requirement met"
+    },
+    "accountability_ownership": {
+      "ai_champion_named": true,
+      "champion": "alice@co.com",
+      "responsibilities_documented": false,
+      "evidence": "⚠️ Champion exists, but responsibilities not explicit (L1.5)"
+    }
+  }
+}
 ```
-Dimension Score  L2 Met?  Evidence                    Next Level
-─────────────────────────────────────────────────────────────────
-Capability
-  AI Tool Adoption              2   ✅  72% adoption, Claude+Copilot
-  Prompt & Context Eng          2.5 ✅  CLAUDE.md in all repos, 73 avg quality
-  Agent Configuration           1.5 ✅  3 custom skills (/review, /commit, /plan)
 
-Integration
-  CI/CD Integration             2   ✅  /review in 89% of sessions
-  Ticketing & Planning          1.8 ⚠️  Issue refs in 42% (target: >60%)   [GAP]
-  Cross-System Connectivity     1.2 ❌  1 integration (target: 2+)         [GAP]
-```
+### Phase 4: Synthesis Report (Human-Driven)
+Combine signals into a holistic assessment:
 
-### Phase 4: Integrate Qualitative Assessment Questions
-Create a companion assessment that:
-- Asks the 12 sections of questions from the template
-- Scores each dimension based on answers
-- Triangulates with log-based signals for confidence
-- Flags mismatches (e.g., logs show high /review, but team says "no policy")
+**For each dimension:**
+1. **Evidence from logs:** "72% adoption, consistent tool choice"
+2. **Answers to assessment questions:** "Team standardized on Claude Code; licenses managed; no fragmentation"
+3. **Artifact verification:** "CLAUDE.md in all repos, current, quality content"
+4. **Synthesized maturity:** "L2 - Integrated" (all three sources align)
+5. **Confidence:** "High" (triangulation confirms)
+6. **Gaps/next steps:** "To reach L3: implement multi-agent orchestration"
 
-**Output:** Combined score:
-- 50% from log-based signals (quantitative + qualitative patterns)
-- 50% from team assessment answers (qualitative)
-- Confidence = agreement between both sources
+**This is NOT automated.** An assessor reads logs + evidence, asks questions, checks artifacts, then makes the call.
 
-### Phase 5: CLAUDE.md and Artifact Detection
-Future: Parse repo CLAUDE.md files to verify:
-- Repo coverage (% of active repos have CLAUDE.md)
-- Content quality (sections: architecture, conventions, known gotchas, domain context)
-- Freshness (last updated date)
-- Usage signals (frequency of developer references in session logs)
+### Phase 5: CLAUDE.md and Knowledge Artifact Parsing
+Future: Extract and analyze CLAUDE.md files to understand:
+- **Coverage:** % of active repos with CLAUDE.md
+- **Completeness:** Does it include architecture, conventions, gotchas, domain context?
+- **Freshness:** Last updated date (signals maintenance)
+- **Quality:** Depth of architecture explanation, clarity of conventions
+- **Usage:** How often do developers reference it in logs?
 
-Feeds into:
-- **Prompt & Context Engineering** maturity
-- **Ways of Working** maturity
-- **Accountability & Ownership** maturity
+This feeds into:
+- **Prompt & Context Engineering** — Shared templates + reuse
+- **Ways of Working** — Documented standards
+- **Accountability & Ownership** — Champion maintained it
+
+---
+
+## Assessment Philosophy
+
+**This tool should make assessment easier, not replace it.**
+
+A good assessment:
+1. **Starts with evidence:** "Your logs show 72% Claude Code adoption"
+2. **Asks questions:** "Is that by choice or enforcement? How are tools managed?"
+3. **Checks artifacts:** "Show me your tool selection policy or CLAUDE.md"
+4. **Makes a judgment call:** "Based on all three, you're L2 Integrated on tool adoption"
+
+**Not:** "Your logs show 72% adoption = L2 score."
+
+The assessor is the expert. The tool is a facilitator.
+
+---
+
+## What This Tool Is NOT
+
+❌ **Not an auto-scorer.** Don't build a function that reads logs and returns "L2.3 overall maturity." That's wrong.
+
+❌ **Not a replacement for interviews.** You cannot assess "Accountability & Ownership" or "Ways of Working" from logs alone. You must ask the team.
+
+❌ **Not a source of truth.** Logs are one data source. Contradictions matter: If logs show 80% /review adoption but the team says "we have no PR policy," that's a critical finding to explore, not ignore.
+
+❌ **Not unbiased.** The rubric and questions embed assumptions about "good" AI practices. Different orgs may have valid L1/L2 approaches that don't fit the Semios ideal-team-vision.
+
+---
+
+## What This Tool IS
+
+✅ **A structured assessment framework.** 4 dimensions, 12 sub-dimensions, L1-L4 definitions, 50 assessment questions.
+
+✅ **An evidence facilitator.** Surfacing log patterns (tool usage, /review adoption, CLAUDE.md loading) to inform better questions.
+
+✅ **A gap mapper.** Showing where log evidence aligns with or contradicts team answers, flagging areas that need deeper investigation.
+
+✅ **A roadmap generator.** Suggesting what practices to adopt to move from L1 → L2 → L3 → L4.
+
+✅ **A discovery tool.** Helping teams understand their own AI maturity holistically, not just "prompt quality = 73."
+
+---
+
+## Example: Why You Can't Auto-Score
+
+**Team A:**
+- Logs: 70% adoption, avg quality 72, /review in 85% of sessions
+- Assessment Q: "Who owns AI outcomes?" → "No one; everyone uses it independently"
+- Artifact check: "No CLAUDE.md, no policy, no champion"
+- **Assessment:** L1 (Assisted) — Looks like L2 on logs, but governance is absent
+
+**Team B:**
+- Logs: 50% adoption, avg quality 65, /review in 40% of sessions
+- Assessment Q: "Who owns AI outcomes?" → "Alice is our AI champion; owns CLAUDE.md and trains new devs"
+- Artifact check: "CLAUDE.md in all repos, updated last week, comprehensive"
+- **Assessment:** L2 (Integrated) — Lower quantitative metrics, but intentional practices + ownership = L2
+
+**The moral:** The same log metrics can mean different things depending on governance, ownership, and intentionality. Only holistic assessment gets it right.
 
 ---
 
