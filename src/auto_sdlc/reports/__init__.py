@@ -5,6 +5,11 @@ from auto_sdlc.reports.roadmap import (
     RoadmapGenerator,
     RoadmapItem,
 )
+from auto_sdlc.reports.models import (
+    DimensionReport,
+    TeamReport,
+    IndividualReport,
+)
 
 __all__ = [
     "LogEvidence",
@@ -12,4 +17,7 @@ __all__ = [
     "RoadmapAction",
     "RoadmapGenerator",
     "RoadmapItem",
+    "DimensionReport",
+    "TeamReport",
+    "IndividualReport",
 ]
