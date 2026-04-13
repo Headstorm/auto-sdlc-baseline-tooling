@@ -133,6 +133,53 @@ Generates a personal HTML report at `~/.auto-sdlc/reports/`.
 
 ---
 
+## AI Maturity Assessment Reports
+
+Generate professional PDF reports that measure your team's AI capability against the **Ideal Development Team** framework.
+
+Reports assess **12 sub-dimensions** across **4 maturity dimensions** (Capability, Integration, Governance, Execution Ownership) using maturity levels L1-L4.
+
+### Quick Start: Generate Your First Report
+
+```bash
+# 1. Generate report from your project
+auto-sdlc report \
+  --user-id my_team \
+  --project-path /path/to/project \
+  --output-dir ./reports
+
+# Report saved to: ./reports/my_team_report_2026-04-13_120000.pdf
+```
+
+The report includes:
+- **Executive Summary** — Team maturity level and key insights
+- **Dimension Deep-Dives** — Current state, strengths, gaps, and roadmap for each dimension
+- **Actionable Recommendations** — Specific steps to reach the next maturity level
+- **Strategic Roadmap** — Timeline and effort estimates for progression
+
+**Report Types:**
+- **Team Reports** (8-12 pages) — Org-wide maturity assessment with team-wide gaps and strengths
+- **Individual Reports** (4-6 pages) — Developer profile showing personal patterns and growth areas
+
+**Two Methods to Generate:**
+
+*CLI:*
+```bash
+auto-sdlc report --user-id my_team --project-path /path --output-dir ./reports
+```
+
+*Server:*
+```bash
+curl -X POST http://localhost:8000/api/report/generate \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "my_team", "project_path": "/path", "report_type": "team"}' \
+  -o team_report.pdf
+```
+
+See [Report Generation Guide](docs/REPORT_GENERATION.md) for detailed workflows, examples, and more.
+
+---
+
 ## Maturity Model
 
 Each developer report scores 5 dimensions (0–4 each):
