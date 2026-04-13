@@ -182,3 +182,148 @@ def test_find_projects_dir_flat_layout(tmp_path):
     (tmp_path / "s.jsonl").write_text('{"type":"say"}\n')
     result = _find_projects_dir(tmp_path)
     assert result == tmp_path
+
+
+# ============================================================================
+# REPORT API ENDPOINT TESTS
+# ============================================================================
+
+def test_report_status_endpoint(client):
+    """GET /api/report/status returns server status and capabilities."""
+    r = client.get("/api/report/status")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "ready"
+    assert data["version"] == "1.0"
+    assert "team_reports" in data["capabilities"]
+    assert "individual_reports" in data["capabilities"]
+    assert "assessment_integration" in data["capabilities"]
+
+
+def test_report_validate_endpoint_valid_inputs(tmp_path):
+    """POST /api/report/validate with valid inputs returns validation success."""
+    # Create a test project directory structure
+    project_dir = tmp_path / "test_project"
+    project_dir.mkdir()
+    (project_dir / "logs").mkdir()
+    (project_dir / "CLAUDE.md").write_text("# Test")
+
+    app = create_app(str(tmp_path))
+    client = TestClient(app)
+
+    r = client.post("/api/report/validate", json={
+        "user_id": "test_user",
+        "project_path": str(project_dir),
+        "report_type": "team",
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data["valid"] is True
+    assert len(data["errors"]) == 0
+    assert data["data_sources"]["logs"] is True
+    assert data["data_sources"]["configs"] is True
+
+
+def test_report_validate_endpoint_invalid_report_type(tmp_path):
+    """POST /api/report/validate returns error for invalid report_type."""
+    project_dir = tmp_path / "test_project"
+    project_dir.mkdir()
+
+    app = create_app(str(tmp_path))
+    client = TestClient(app)
+
+    r = client.post("/api/report/validate", json={
+        "user_id": "test_user",
+        "project_path": str(project_dir),
+        "report_type": "invalid_type",
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data["valid"] is False
+    assert any("report_type" in err for err in data["errors"])
+
+
+def test_report_validate_endpoint_missing_project_path(tmp_path):
+    """POST /api/report/validate returns error for missing project path."""
+    app = create_app(str(tmp_path))
+    client = TestClient(app)
+
+    r = client.post("/api/report/validate", json={
+        "user_id": "test_user",
+        "project_path": "/nonexistent/path",
+        "report_type": "team",
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data["valid"] is False
+    assert any("does not exist" in err for err in data["errors"])
+
+
+def test_report_validate_endpoint_invalid_assessment_responses(tmp_path):
+    """POST /api/report/validate returns error for invalid assessment responses file."""
+    project_dir = tmp_path / "test_project"
+    project_dir.mkdir()
+
+    app = create_app(str(tmp_path))
+    client = TestClient(app)
+
+    r = client.post("/api/report/validate", json={
+        "user_id": "test_user",
+        "project_path": str(project_dir),
+        "report_type": "team",
+        "assessment_responses": "/nonexistent/responses.json",
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data["valid"] is False
+    assert any("assessment_responses" in err for err in data["errors"])
+
+
+def test_report_generate_endpoint_missing_user_id(tmp_path):
+    """POST /api/report/generate returns 422 for missing user_id."""
+    project_dir = tmp_path / "test_project"
+    project_dir.mkdir()
+
+    app = create_app(str(tmp_path))
+    client = TestClient(app)
+
+    r = client.post("/api/report/generate", json={
+        "user_id": "",
+        "project_path": str(project_dir),
+        "report_type": "team",
+    })
+    # Pydantic validation catches empty user_id with 422
+    assert r.status_code == 422
+
+
+def test_report_generate_endpoint_invalid_report_type(tmp_path):
+    """POST /api/report/generate returns 400 for invalid report_type."""
+    project_dir = tmp_path / "test_project"
+    project_dir.mkdir()
+
+    app = create_app(str(tmp_path))
+    client = TestClient(app)
+
+    r = client.post("/api/report/generate", json={
+        "user_id": "test_user",
+        "project_path": str(project_dir),
+        "report_type": "invalid_type",
+    })
+    assert r.status_code == 400
+    data = r.json()
+    assert "detail" in data
+
+
+def test_report_generate_endpoint_missing_project_path(tmp_path):
+    """POST /api/report/generate returns 400 for missing project path."""
+    app = create_app(str(tmp_path))
+    client = TestClient(app)
+
+    r = client.post("/api/report/generate", json={
+        "user_id": "test_user",
+        "project_path": "/nonexistent/path",
+        "report_type": "team",
+    })
+    assert r.status_code == 400
+    data = r.json()
+    assert "detail" in data

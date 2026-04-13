@@ -1,17 +1,60 @@
 """Central collection server for auto-sdlc reports."""
 import json
+import logging
 import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional, Dict, Any
 
 try:
     from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-    from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+    from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+    from pydantic import BaseModel, Field
 except ImportError:
     raise ImportError("Server dependencies not installed. Run: pip install auto-sdlc[server]")
 
 from auto_sdlc.logs.team import build_team_report, render_team_html
+from auto_sdlc.reports.pipeline import ReportGenerationPipeline
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# REQUEST/RESPONSE MODELS
+# ============================================================================
+
+class ReportRequest(BaseModel):
+    """Request body for /api/report/generate endpoint."""
+    user_id: str = Field(..., min_length=1, description="Team name or user identifier")
+    project_path: str = Field(..., description="Path to project directory")
+    report_type: str = Field(default="team", description="Report type: 'team' or 'individual'")
+    assessment_responses: Optional[str] = Field(default=None, description="Optional path to assessment responses JSON")
+    team_baseline: Optional[str] = Field(default=None, description="Optional path to team baseline scores JSON")
+
+
+class ValidationResponse(BaseModel):
+    """Response body for /api/report/validate endpoint."""
+    valid: bool
+    errors: list = Field(default_factory=list)
+    warnings: list = Field(default_factory=list)
+    data_sources: Dict[str, bool] = Field(default_factory=dict)
+
+
+class StatusResponse(BaseModel):
+    """Response body for /api/report/status endpoint."""
+    status: str = "ready"
+    version: str = "1.0"
+    capabilities: list = Field(default_factory=lambda: [
+        "team_reports", "individual_reports", "assessment_integration"
+    ])
+    sample_command: str = "auto-sdlc report --user-id test --project-path /path"
+
+
+class ErrorResponse(BaseModel):
+    """Standard error response."""
+    error: str
+    details: Optional[str] = None
 
 
 def _find_projects_dir(extracted_root):
@@ -293,5 +336,178 @@ def create_app(reports_dir):
         # Extract just the report dicts (second element of tuples) for metrics calculation
         report_dicts = [r for _, r in user_reports]
         return render_team_html(report, report_dicts)
+
+    # ========================================================================
+    # REPORT GENERATION API ENDPOINTS
+    # ========================================================================
+
+    @app.get("/api/report/status")
+    def report_status():
+        """
+        Check server health and report generation status.
+
+        Returns capabilities and server version information.
+        """
+        return StatusResponse()
+
+    @app.post("/api/report/validate")
+    def validate_report(request: ReportRequest):
+        """
+        Validate report generation inputs without generating a report.
+
+        Checks project path existence, report type validity, and file readability.
+
+        Returns validation results with data sources found.
+        """
+        errors = []
+        warnings = []
+        data_sources = {"logs": False, "configs": False, "capabilities": False}
+
+        # Validate user_id
+        if not request.user_id or not request.user_id.strip():
+            errors.append("user_id must be a non-empty string")
+
+        # Validate report_type
+        if request.report_type not in ("team", "individual"):
+            errors.append(f"report_type must be 'team' or 'individual', got '{request.report_type}'")
+
+        # Validate project_path
+        project_path = Path(request.project_path)
+        if not project_path.exists():
+            errors.append(f"project_path does not exist: {request.project_path}")
+        elif not project_path.is_dir():
+            errors.append(f"project_path must be a directory: {request.project_path}")
+        else:
+            # Check for data sources
+            if (project_path / "logs").exists():
+                data_sources["logs"] = True
+            if (project_path / "CLAUDE.md").exists() or (project_path / "AGENTS.md").exists():
+                data_sources["configs"] = True
+            # capabilities check would require more detailed scanning
+            data_sources["capabilities"] = False
+
+        # Validate assessment_responses if provided
+        if request.assessment_responses:
+            resp_path = Path(request.assessment_responses)
+            if not resp_path.exists():
+                errors.append(f"assessment_responses file not found: {request.assessment_responses}")
+            else:
+                try:
+                    with open(resp_path) as f:
+                        json.load(f)
+                except json.JSONDecodeError as e:
+                    errors.append(f"assessment_responses is not valid JSON: {e}")
+
+        # Validate team_baseline if provided
+        if request.team_baseline:
+            baseline_path = Path(request.team_baseline)
+            if not baseline_path.exists():
+                errors.append(f"team_baseline file not found: {request.team_baseline}")
+            else:
+                try:
+                    with open(baseline_path) as f:
+                        json.load(f)
+                except json.JSONDecodeError as e:
+                    errors.append(f"team_baseline is not valid JSON: {e}")
+
+        # Check if required data sources exist (warning only)
+        if not data_sources["logs"] and not data_sources["configs"]:
+            warnings.append("No logs or config files found. Report may be incomplete.")
+
+        return ValidationResponse(
+            valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings,
+            data_sources=data_sources,
+        )
+
+    @app.post("/api/report/generate")
+    def generate_report(request: ReportRequest):
+        """
+        Generate and return a report as PDF.
+
+        Accepts user_id, project_path, report_type, and optional assessment data.
+        Returns a PDF file with appropriate headers.
+
+        Raises:
+            400: Invalid request (missing fields, invalid path, etc.)
+            413: Payload too large (assessment responses > 1MB)
+            500: Server error during PDF generation
+        """
+        try:
+            # Validate inputs first
+            if not request.user_id or not request.user_id.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="user_id is required and must be non-empty"
+                )
+
+            if request.report_type not in ("team", "individual"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"report_type must be 'team' or 'individual', got '{request.report_type}'"
+                )
+
+            project_path = Path(request.project_path)
+            if not project_path.exists():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"project_path does not exist: {request.project_path}"
+                )
+
+            if not project_path.is_dir():
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"project_path must be a directory: {request.project_path}"
+                )
+
+            # Log the request
+            logger.info(
+                f"Generating {request.report_type} report for user_id={request.user_id}, "
+                f"project_path={request.project_path}"
+            )
+
+            # Generate report using pipeline
+            pipeline = ReportGenerationPipeline()
+            report_obj, pdf_path = pipeline.generate_report(
+                user_id=request.user_id,
+                project_path=str(project_path),
+                report_type=request.report_type,
+                assessment_responses=request.assessment_responses,
+                team_baseline=request.team_baseline,
+                output_dir=str(reports_path),
+            )
+
+            # Read PDF bytes
+            pdf_bytes = pdf_path.read_bytes()
+
+            # Generate filename for response
+            safe_user = request.user_id.replace("@", "_at_").replace("/", "_")
+            today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+            filename = f"{safe_user}_report_{today}.pdf"
+
+            logger.info(f"Report generated successfully: {pdf_path}")
+
+            # Return PDF with appropriate headers
+            return FileResponse(
+                path=pdf_path,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+        except HTTPException:
+            raise
+        except FileNotFoundError as e:
+            logger.error(f"File not found error: {e}")
+            raise HTTPException(status_code=400, detail=f"Required file not found: {e}")
+        except ValueError as e:
+            logger.error(f"Validation error: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid input: {e}")
+        except Exception as e:
+            logger.exception(f"Unexpected error during report generation: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Server error during report generation: {str(e)}"
+            )
 
     return app
