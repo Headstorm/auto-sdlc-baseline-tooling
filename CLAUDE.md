@@ -98,6 +98,152 @@ We can infer maturity from behavioral patterns:
 
 ---
 
+## The 12 Sub-Dimensions: Full L1-L4 Rubric
+
+### 1. AI Tool Adoption
+**What it measures:** Are tools standardized, or scattered?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Assisted** | Ad-hoc use of copilots; no org-wide tool strategy | Who decides which AI tool to use? Is choice individual or enforced? Are licenses managed? | Multiple different tools in use; inconsistent tool choices per session; low adoption density |
+| **L2: Integrated** | Standardized on 1–2 AI tools across the team; licenses managed | Is the team standardized on a single primary tool (e.g., Claude Code + Copilot)? Are licenses managed centrally? | >70% of team uses same tool(s); consistent tool patterns; managed licensing visible |
+| **L3: Agentic** | Multi-agent toolchains configured per workflow; prompt libraries maintained | Do you have orchestration between multiple agents or tools? Are prompt templates curated? | Orchestrated tool calls; specialized agents per task; documented prompt templates in use |
+| **L4: Autonomous** | Agents select and orchestrate tools autonomously based on task context; consistently adhere to standards | Do agents choose tools dynamically? Are coding standards enforced automatically? | Agents switch tools based on task; zero manual tool selection; style/convention consistency perfect |
+
+---
+
+### 2. Prompt & Context Engineering
+**What it measures:** Do teams share context, or rebuild from scratch?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Assisted** | Individual engineers write one-off prompts; no sharing | Do developers write prompts from scratch each time? Is there shared context? | High variation in prompt quality; no file path references; vague prompts; no architecture context |
+| **L2: Integrated** | Teams share prompt templates; some reuse; implementation standards at repo level | Does your repo have CLAUDE.md? Are prompts templates shared? | Consistent prompt structure across team; file/line refs in >60% of prompts; CLAUDE.md evidence |
+| **L3: Agentic** | Structured artifacts (architecture docs, product files, conventions) feed agents automatically | Does AI access structured context (docs, ADRs, design docs) automatically per session? | Agents load context automatically; artifact references in 80%+ of prompts; low prompt-writing overhead |
+| **L4: Autonomous** | Agents maintain and update their own context documents; self-improving prompt chains (APO) | Do agents improve their own prompts or context based on outcomes? Is there feedback learning? | Agents refine prompts over sessions; context auto-updates; self-generated prompt improvements detected |
+
+---
+
+### 3. Agent Configuration
+**What it measures:** Are custom agents configured, or using tools out-of-the-box?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Assisted** | No custom agents; using tools out-of-the-box only | Are you using defaults, or customized setups? | No custom skills; no /commands used; default Copilot settings |
+| **L2: Integrated** | Basic slash commands or custom instructions configured | Do you have 1+ custom slash commands (e.g., /review, /commit)? Custom Copilot instructions? | /review, /commit, /plan usage detected; custom instructions in profiles; 20-30% skill invocation |
+| **L3: Agentic** | Multi-step agents with defined workflows, error handling, validation loops | Do you have agents that orchestrate multiple steps? Error recovery? | Multi-step task execution; error handling patterns; validation loops; specialized agents per task |
+| **L4: Autonomous** | Agents compose and decompose tasks, spawn sub-agents, self-correct within guardrails | Do agents spawn new agents? Decompose complex work autonomously? | Sub-agent orchestration; dynamic task decomposition; self-correction loops; >4 steps per task |
+
+---
+
+### 4. CI/CD Integration
+**What it measures:** Is AI integrated into the build pipeline?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Assisted** | AI not connected to CI/CD; manual copy-paste of outputs | Is AI output manually copy-pasted to CI? Or is there automated integration? | No CI/CD tool invocations; /review not used; manual merges |
+| **L2: Integrated** | AI-generated code goes through standard PR review; basic checks automated | Does every PR get /review before push? Are linting/test checks automated? | /review in >80% of sessions; CI/CD tool invocations present; test generation visible |
+| **L3: Agentic** | When CI pipelines triggered, agents read results and auto-remediate failures | Do agents read CI failures and auto-fix them? | Agents respond to CI failures; auto-remediation patterns; re-commit on lint failures |
+| **L4: Autonomous** | Full closed-loop: agents commit, test, deploy, monitor, roll back autonomously | Do agents deploy without human approval? Monitor and rollback automatically? | Autonomous commits; deploy invocations; rollback logic; 24/7 closed-loop cycles |
+
+---
+
+### 5. Ticketing & Planning
+**What it measures:** Is AI used to validate and refine work before starting?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Assisted** | Issues written manually; AI used only for code | Do PMs or devs use AI to write/refine tickets? Or is it all manual? | No ticket references in prompts; task descriptions vague; no issue link context |
+| **L2: Integrated** | AI assists in writing or refining tickets; humans approve | Do developers validate ticket quality with AI before starting? | Early-session prompts reference JIRA/issues; acceptance criteria validation; ticket refinement |
+| **L3: Agentic** | Agents parse raw issues into structured, implementation-ready artifacts | Do agents automatically structure issues into specs? | Issues transformed into detailed specs; acceptance criteria auto-generated; task decomposition |
+| **L4: Autonomous** | Agents triage backlog, size work, assign to parallel tracks, validate completion | Do agents triage bugs, size stories, auto-assign? Monitor completion? | Backlog triage automation; story pointing; parallel task spawning; completion validation |
+
+---
+
+### 6. Cross-System Connectivity
+**What it measures:** Can AI access repos, docs, JIRA, GitHub, Slack, etc.?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Isolated** | AI works in isolation (IDE only); no access to org systems | Is AI only in the IDE? Or connected to GitHub, JIRA, docs? | No GitHub, JIRA, Slack, doc tool invocations; isolated context |
+| **L2: Connected** | AI reads from repos and docs; limited write access | Does AI fetch PR context, issue details, or architectural docs? | GitHub/JIRA lookups detected; doc references; limited write operations |
+| **L3: Context-Sharing** | Agents read/write across repos, ticketing, CI/CD, monitoring systems | Do agents share state across systems? Read+write to multiple tools? | Multi-system context sharing; cross-repo coordination; bi-directional sync |
+| **L4: Unified Context Layer** | Agents operate across all SDLC systems with full bi-directional integration | Is there a unified context layer feeding all agents? Business+product+tech metrics? | Unified context updates; business metrics feeding technical decisions; monitoring loop |
+
+---
+
+### 7. Quality Controls
+**What it measures:** Are AI outputs held to code quality standards?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: No AI-specific** | No AI-specific quality gates; standard code review only | Is AI-generated code reviewed differently than human code? | No /review usage; test generation absent; coverage not validated |
+| **L2: Linting & Checks** | Linting and basic checks on AI-generated code; review checklists exist | Are there linting jobs on AI code? PR review checklist with AI items? | Lint run failures present; test generation; coverage checks visible in logs |
+| **L3: Eval Harnesses** | Automated eval harnesses validate AI output against defined quality criteria | Do you have test suites that validate AI output quality? | Comprehensive test generation; edge case testing; harness validation runs |
+| **L4: Auto-Rejection** | Continuous quality scoring with auto-rejection, re-generation, escalation | Does the system auto-reject bad output and retry? | Quality score tracking; auto-rejection logic; re-generation loops; escalation protocols |
+
+---
+
+### 8. Security & Compliance
+**What it measures:** Is AI usage governed and auditable?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: No Policy** | No policy on AI usage; shadow AI likely | Is there an AI usage policy? Data handling rules? | No compliance signals; PII-like patterns in prompts; unclear data source governance |
+| **L2: Documented Policy** | AI usage policy exists; approved tool list; basic data handling rules | Is there a written policy? Approved tools documented? Data restrictions clear? | Policy reference visible; data-handling consistency; approved tool usage only |
+| **L3: Enforced Guardrails** | Guardrails enforced in code (hooks, scans); AI actions logged and auditable | Are there hooks that prevent sensitive data in prompts? Audit logs enabled? | Sensitive data filtering detected; comprehensive logging; audit trail visible |
+| **L4: Policy-as-Code** | Policy-as-code; agents self-enforce compliance; real-time violation detection | Are compliance rules automated? Real-time violation alerts? | Automated compliance checks; self-healing enforcement; real-time alerting detected |
+
+---
+
+### 9. Measurement & KPIs
+**What it measures:** Are metrics tracked to show AI impact?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: No Metrics** | No metrics tracked for AI-assisted work | Do you track adoption rate or usage frequency? | No usage pattern analysis; adoption unclear |
+| **L2: Basic Metrics** | Basic metrics: adoption rate, usage frequency; reported manually | Do you track % of team using AI and sessions/day? | Adoption rate >50%; session frequency visible; usage trending |
+| **L3: DORA-Aligned** | DORA-aligned KPIs tracked automatically: velocity, throughput, cycle time, CFR | Do you track PR cycle time, deployment frequency, change failure rate? | Cycle time improvements; throughput gains; failure rate trends correlate with AI adoption |
+| **L4: AI-Driven Dashboards** | AI-driven dashboards; agents optimize their own workflows based on KPI feedback loops | Do agents see KPIs and adjust their approach? Feedback loops? | Agents optimize for measured KPIs; feedback-driven improvements; continuous optimization |
+
+---
+
+### 10. Ways of Working
+**What it measures:** Are AI workflows documented and shared?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Individual** | Each engineer uses AI independently; no team conventions | Do developers follow shared conventions, or each do their own thing? | Highly variable session patterns; no consistent entry protocol; ad-hoc workflows |
+| **L2: Documented** | Team has shared conventions for AI use; documented in wiki or README | Is there an "AI Ways of Working" doc? Shared conventions documented? | Consistent session openers; CLAUDE.md loading; shared prompt patterns visible |
+| **L3: Defined Gates** | Defined review gates, handoff protocols, escalation paths for agentic work | Are there review gates for AI-generated code? Escalation paths? | Clear review gate usage; escalation patterns; handoff protocol adherence |
+| **L4: Shared Accountability** | Teams and agents share accountability; human oversight is structured, not ad-hoc | Do teams and agents have shared KPI accountability? Structured oversight? | Structured approval gates; agent KPI alignment; human oversight metrics tracked |
+
+---
+
+### 11. Accountability & Ownership
+**What it measures:** Is AI adoption owned by a specific person/team?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: No Owner** | No one owns AI outcomes; results are individual | Is there a designated AI champion or owner? | No visible AI champion behavior; isolated adoption; no cross-team sharing |
+| **L2: Tech Lead/Champion** | Tech lead or champion owns AI adoption for the team | Do you have a named AI champion? What are their responsibilities? | Consistent champion patterns visible; CLAUDE.md updates by same person; mentorship signals |
+| **L3: Team Ownership** | Team collectively owns agentic output quality; KPIs tied to team performance | Are AI KPIs tied to team performance reviews? | Collective ownership signals; shared code review patterns; team velocity metrics |
+| **L4: Measured SLAs** | End-to-end delivery outcomes owned by team+agents with measurable SLAs | Are delivery SLAs tied to AI outcomes? | Agent SLA compliance; delivery KPIs tracked; accountability metrics visible |
+
+---
+
+### 12. Scalability & Knowledge Transfer
+**What it measures:** Can new developers be productive with AI quickly?
+
+| Level | Definition | Assessment Questions | Claude Log Signals |
+|-------|-----------|----------------------|-------------------|
+| **L1: Tribal** | Knowledge is tribal; nothing documented or transferable | Is there onboarding material for AI? Or do new devs figure it out? | New dev sessions show low productivity; gradual ramp; no shared context available |
+| **L2: Documented** | Some documentation; onboarding materials for AI tools exist | Do new devs get CLAUDE.md? Prompt library? Training? | New dev ramp visible; onboarding docs loaded; baseline context available |
+| **L3: Reusable Playbooks** | Reusable playbooks, module configs, patterns documented and shared cross-team | Are common workflows documented as playbooks? Shared across teams? | Consistent playbook usage; cross-team adoption of patterns; documentation quality high |
+| **L4: Self-Service** | Self-service enablement; new teams can adopt the model independently | Can a new team adopt AI workflows without COE help? | Zero-dependency onboarding; new team velocity; no handholding required |
+
+---
+
 ## L2 Maturity Profile
 
 An L2 team (the "Ideal Development Team" at Semios):
@@ -114,36 +260,328 @@ An L2 team (the "Ideal Development Team" at Semios):
 
 ---
 
+## Qualitative Assessment Questions by Dimension
+
+These questions help verify maturity levels. They should be asked during team interviews or surveys.
+
+### SECTION 1: Capability (AI Tool Adoption, Prompt & Context Engineering, Agent Configuration)
+
+**1.1 Current AI Usage in Delivery**
+- How are developers currently using AI tools (Copilot, Claude Code, internal tools)?
+- Are AI tools standardized or chosen individually? What is the selection process?
+- What processes do you follow for planning, issue refinement, code generation, test creation, CI/CD? Where does AI live?
+- How are AI outputs reviewed? Are there organizational policies that set standards for AI usage?
+
+**1.2 Automation Across SDLC Phases**
+- **Plan:** Is AI used to prioritize or synthesize backlog items?
+- **Design:** Does AI draft or validate technical designs?
+- **Build:** Does AI generate code beyond autocomplete?
+- **Test:** Is AI generating or maintaining test suites?
+- **Deploy:** Does AI assist in release management or rollout decisions?
+- **Operate:** Does telemetry feed back into automated issue creation?
+
+**1.3 Custom Agents & Skills**
+- Do you have custom slash commands (e.g., /review, /commit, /plan)? How widely used?
+- Does your team have at least 1 custom skill for repeated tasks?
+- Are prompt templates curated and shared across team members?
+
+---
+
+### SECTION 2: Integration (CI/CD, Ticketing & Planning, Cross-System Connectivity)
+
+**2.1 CI/CD Integration**
+- How is AI-generated code validated before human review? (e.g., /review, automated lint checks, test generation)
+- Does every PR pass through AI review layers? How many?
+- Are test suites generated automatically or validated by AI?
+
+**2.2 Ticketing & Planning**
+- Do developers use AI to validate ticket quality before starting work?
+- Are AI outputs used to enrich tickets (acceptance criteria, edge cases)?
+- Are issues structured with sufficient context for both developers and AI?
+
+**2.3 Cross-System Connectivity**
+- Is AI connected to Git, CI/CD, JIRA/DevOps, documentation?
+- Do AI tools share context across systems (e.g., PR history, architecture docs, CI results)?
+- Are there 2+ MCP integrations active (JIRA + GitHub, etc.)?
+
+---
+
+### SECTION 3: Governance (Quality Controls, Security & Compliance, Measurement & KPIs)
+
+**3.1 Quality Controls**
+- Is there a documented PR review checklist with AI-specific items?
+- Are AI-generated changes held to the same quality bar as human code?
+- How are edge cases and test coverage validated for AI output?
+
+**3.2 Security & Compliance**
+- Is there a formal AI usage policy? Approved tools documented?
+- What data restrictions exist (what can/cannot be sent to AI)?
+- Are AI actions logged and auditable?
+- Do you have hooks or scans that prevent sensitive data from reaching AI?
+
+**3.3 Measurement & KPIs**
+- What metrics do you track for AI adoption? (% of team, sessions/day, PR cycle time)
+- How is AI impact measured? (Pre/post baselines, DORA metrics)
+- Are adoption and timing metrics tracked automatically or manually?
+
+---
+
+### SECTION 4: Execution Ownership (Ways of Working, Accountability, Scalability)
+
+**4.1 Ways of Working**
+- Is there a documented "AI Ways of Working" page?
+- What is the standard protocol for starting an AI session? (Load CLAUDE.md? Load context?)
+- When do developers use plan mode vs. direct generation?
+
+**4.2 Accountability & Ownership**
+- Is there a designated AI champion? What are their explicit responsibilities?
+- Who owns CLAUDE.md maintenance? Prompt library curation? Onboarding?
+- Are AI KPIs tied to team performance reviews or individual accountability?
+
+**4.3 Scalability & Knowledge Transfer**
+- When new developers join, what AI onboarding materials do they receive?
+- Is there a prompt library or playbook for common tasks?
+- How quickly do new team members become productive with AI?
+
+---
+
+### SECTION 5: Value Realization & KPI
+
+**5.1 Baseline Measurement**
+- Do you track DORA metrics? (PR cycle time, deployment frequency, change failure rate, lead time)
+- Are these metrics trusted and acted upon?
+
+**5.2 AI Impact Measurement**
+- Have you measured AI's impact? Pre/post baselines?
+- Is improvement quantified or anecdotal?
+
+**5.3 Business Alignment**
+- Is AI tied to business outcomes? (EBITDA, revenue, cost reduction, delivery speed)
+
+---
+
+## Detecting Maturity from Claude Code Logs
+
+### Quantitative Signals (Direct from JSON Report)
+
+| Sub-Dimension | Claude Log Metric | L1 Range | L2 Range | L3 Range | L4 Range |
+|---|---|---|---|---|---|
+| **AI Tool Adoption** | % of team using Claude Code | <30% | 50-75% | 75-90% | >90% |
+| **Prompt & Context Engineering** | Avg prompt quality score | <40 | 60-75 | 75-85 | 85+ |
+| **Agent Configuration** | Skill invocation ratio | <5% | 20-30% | 40-60% | >60% |
+| **CI/CD Integration** | /review usage (% of sessions) | <20% | >80% | >95% | 100% |
+| **Ticketing & Planning** | Early-session JIRA/issue refs | <10% | >40% | >70% | >90% |
+| **Cross-System Connectivity** | MCP tool invocations | 0 | 1-2 | 3-4 | 5+ |
+| **Quality Controls** | Test generation % | <20% | 40-60% | 70-85% | 90%+ |
+| **Security & Compliance** | PII/sensitive data patterns | Frequent | Occasional | Rare | None |
+| **Measurement & KPIs** | Adoption rate trend | Declining | Stable | Growing | Rapidly growing |
+| **Ways of Working** | Plan mode usage | <10% | 30-50% | 60-75% | >75% |
+| **Accountability** | CLAUDE.md update frequency | Sporadic | Monthly | Weekly | Real-time |
+| **Scalability** | New dev ramp time (weeks to baseline) | 6-8 | 3-4 | 1-2 | <1 |
+
+### Qualitative Signals (Inferred from Log Patterns)
+
+**AI Tool Adoption**
+- L1: Multiple different tools detected; no coordination
+- L2: Single primary tool (Claude Code); Copilot for PRs; consistent across team
+- L3: Tool orchestration visible; multiple agents per task; coordinated tool switching
+- L4: Agents autonomously select best tool per task; tool fragmentation impossible
+
+**Prompt & Context Engineering**
+- L1: Prompts rewritten each session; high variation; no file/line refs
+- L2: Consistent prompt structure; file/line refs in >50% of prompts; CLAUDE.md loaded
+- L3: Agents auto-load context; architecture/design doc references; minimal prompt preamble
+- L4: Context self-updates; self-improving prompts detected; agent-optimized chains
+
+**Agent Configuration**
+- L1: Default tool behavior only; no customization
+- L2: 1-2 custom slash commands; basic Copilot instructions configured
+- L3: Multi-step agents; error handling patterns; specialized agents per task
+- L4: Sub-agent orchestration; dynamic decomposition; self-correcting workflows
+
+**CI/CD Integration**
+- L1: Outputs manually copy-pasted; no automation signals
+- L2: /review before push (>80%); lint failures recovered; tests generated
+- L3: Agents respond to CI failures; auto-remediation patterns; re-commits on failure
+- L4: Autonomous deploy; rollback; monitoring feedback loops; 24/7 closed-loop
+
+**Ticketing & Planning**
+- L1: Tasks described vaguely; no issue structure
+- L2: Early session prompts reference JIRA; acceptance criteria validated
+- L3: Issues auto-transformed into specs; task decomposition; structured data extraction
+- L4: Backlog triage; story pointing; parallel task generation; completion validation
+
+**Cross-System Connectivity**
+- L1: No external tool invocations; IDE-only context
+- L2: GitHub/JIRA lookups; doc references; fetch operations visible
+- L3: Multi-system reads and writes; context sharing across tools
+- L4: Unified context layer; business metrics feeding technical decisions
+
+**Quality Controls**
+- L1: No /review; no test generation; no coverage checks
+- L2: /review in >80% of sessions; test generation; linting feedback
+- L3: Comprehensive test suites; edge case generation; harness validation
+- L4: Auto-rejection of low-quality output; re-generation loops; escalation protocols
+
+**Security & Compliance**
+- L1: PII, API keys, or sensitive data in prompts
+- L2: Consistent data-handling patterns; no PII detected; policy adherence evident
+- L3: Sensitive data actively filtered; audit logging enabled; compliance hooks detected
+- L4: Real-time violation detection; automated self-healing; policy-as-code visible
+
+**Measurement & KPIs**
+- L1: No adoption metrics; usage unclear
+- L2: Adoption rate >50%; sessions/day tracked; basic reporting
+- L3: DORA metrics; cycle time improvements; throughput gains correlate with AI
+- L4: Agents optimize for measured KPIs; feedback-driven improvements; continuous optimization
+
+**Ways of Working**
+- L1: Highly variable session patterns; no consistent entry protocol
+- L2: Consistent CLAUDE.md loading; shared prompt patterns; standard session structure
+- L3: Defined review gates; escalation patterns; handoff protocols evident
+- L4: Structured oversight; agent KPI alignment; consistent accountability patterns
+
+**Accountability & Ownership**
+- L1: No visible champion; isolated adoption; no cross-team patterns
+- L2: Consistent champion patterns; CLAUDE.md updates by 1-2 people; mentorship visible
+- L3: Collective ownership; shared code review patterns; team velocity metrics
+- L4: Agent SLA compliance; delivery KPIs tied to team and agent responsibility
+
+**Scalability & Knowledge Transfer**
+- L1: New devs show low productivity; gradual 6-8 week ramp
+- L2: New devs load CLAUDE.md; access prompt library; 3-4 week ramp to baseline
+- L3: Consistent playbook usage; cross-team pattern adoption; 1-2 week ramp
+- L4: New teams adopt independently; zero-dependency onboarding; <1 week ramp
+
+---
+
 ## Implementation Roadmap
 
-### Phase 1: Extend Report JSON
-Add to individual/team reports:
-- Detected MCP integrations (tool call history)
-- Skill vs. prompt invocation ratio breakdown
-- Session opening patterns (context loading)
-- Plan mode usage percentage
-- /review adoption (% of sessions with /review)
-- Prompt consistency score (variation across team)
+### Phase 1: Extract Qualitative Log Signals
+Add detection logic to the log analyzer to extract:
+- **Tool diversity:** Which tools are invoked; how many per developer
+- **Command usage:** /review, /commit, /plan frequency and adoption
+- **Context patterns:** CLAUDE.md loading, architecture doc refs, early-session behavior
+- **MCP/Integration invocations:** GitHub, JIRA, Slack, doc lookups per session
+- **Testing signals:** Test generation %, coverage validation, edge case detection
+- **Data handling:** Scan for PII, API keys, sensitive patterns
+- **Session structure:** Opening protocol, plan mode %, closing cleanup
+- **Consistency metrics:** Prompt variation across team, champion detection
 
-### Phase 2: Add Dimension Category Mapping
-Map the 12 sub-dimensions to behavioral patterns:
-- Infer each sub-dimension score (0-4) from logs
-- Show "Evidence" sections highlighting behaviors that signal maturity
-- Example: "Agent Configuration (L2)" → "23% skill invocations, 5 unique tools, consistent use of /commit"
+**Output:** Add to individual/team JSON report:
+```json
+{
+  "dimension_signals": {
+    "ai_tool_adoption": {
+      "tools_used": ["claude_code", "copilot"],
+      "tool_diversity": 2,
+      "team_adoption_rate": 0.72
+    },
+    "prompt_context_engineering": {
+      "avg_prompt_quality": 73,
+      "file_ref_percentage": 0.58,
+      "claude_md_detected": true,
+      "context_reuse_pattern": "high"
+    },
+    "agent_configuration": {
+      "skill_invocation_ratio": 0.24,
+      "unique_skills_used": ["review", "commit", "plan"],
+      "custom_skills": 1
+    },
+    ...
+  }
+}
+```
 
-### Phase 3: Generate L2 Checklist Report
-Generate a checklist showing:
-- Which of the 12 sub-dimensions are at 1.5+ (L2)
-- Which are gaps (need work)
-- What behaviors would unlock the next level
-- Recommendations for reaching L2/L3
+### Phase 2: Infer L1-L4 Score for Each Sub-Dimension
+Create a scoring engine that:
+1. Collects quantitative + qualitative signals from Phase 1
+2. Maps each signal to the rubric (L1-L4 thresholds in the table above)
+3. Synthesizes into a confidence-weighted score
+4. Flags uncertainties (needs manual verification via assessment questions)
 
-### Phase 4: Integrate with CLAUDE.md Detection
-Future: Actually parse CLAUDE.md files to verify:
+**Output:** Add to individual/team report:
+```json
+{
+  "maturity_by_dimension": {
+    "ai_tool_adoption": {
+      "score": 2.0,
+      "level": "Integrated",
+      "confidence": "High",
+      "evidence": ["72% team adoption", "Claude Code + Copilot standardized", "Centralized licensing"],
+      "gaps": ["No multi-agent orchestration yet"],
+      "next_level": "Introduce toolchain orchestration for different workflows"
+    },
+    ...
+  }
+}
+```
+
+### Phase 3: Generate Interactive Assessment Report
+Build a new report type that:
+- Shows all 12 sub-dimensions with L1-L4 scores
+- Highlights L2 achievement vs. gaps
+- Lists evidence from logs + recommended assessment questions
+- Provides improvement roadmap (what to do to reach next level)
+- Includes team-wide gaps analysis
+
+**Dashboard view:**
+```
+Dimension Score  L2 Met?  Evidence                    Next Level
+─────────────────────────────────────────────────────────────────
+Capability
+  AI Tool Adoption              2   ✅  72% adoption, Claude+Copilot
+  Prompt & Context Eng          2.5 ✅  CLAUDE.md in all repos, 73 avg quality
+  Agent Configuration           1.5 ✅  3 custom skills (/review, /commit, /plan)
+
+Integration
+  CI/CD Integration             2   ✅  /review in 89% of sessions
+  Ticketing & Planning          1.8 ⚠️  Issue refs in 42% (target: >60%)   [GAP]
+  Cross-System Connectivity     1.2 ❌  1 integration (target: 2+)         [GAP]
+```
+
+### Phase 4: Integrate Qualitative Assessment Questions
+Create a companion assessment that:
+- Asks the 12 sections of questions from the template
+- Scores each dimension based on answers
+- Triangulates with log-based signals for confidence
+- Flags mismatches (e.g., logs show high /review, but team says "no policy")
+
+**Output:** Combined score:
+- 50% from log-based signals (quantitative + qualitative patterns)
+- 50% from team assessment answers (qualitative)
+- Confidence = agreement between both sources
+
+### Phase 5: CLAUDE.md and Artifact Detection
+Future: Parse repo CLAUDE.md files to verify:
 - Repo coverage (% of active repos have CLAUDE.md)
-- Content quality (architecture, conventions, context documented)
+- Content quality (sections: architecture, conventions, known gotchas, domain context)
 - Freshness (last updated date)
-- Usage patterns (developers referencing it in sessions)
+- Usage signals (frequency of developer references in session logs)
+
+Feeds into:
+- **Prompt & Context Engineering** maturity
+- **Ways of Working** maturity
+- **Accountability & Ownership** maturity
+
+---
+
+## Mapping Between Auto-SDLC Metrics and Maturity Dimensions
+
+How existing auto-sdlc measurements feed the 12-dimension scorecard:
+
+| Auto-SDLC Metric | Feeds Into Dimension | How It's Used |
+|---|---|---|
+| Avg prompt quality score (0-100) | Prompt & Context Engineering | Directly; L2 = 60+, L3 = 75+, L4 = 85+ |
+| Skill invocation ratio (%) | Agent Configuration | Directly; L2 = 20-30%, L3 = 40-60%, L4 = 60%+ |
+| Sessions per day | Ways of Working (implies engagement) | Trends; increasing = adoption accelerating |
+| Messages per session | Session Depth + Ways of Working | High depth = thorough workflows; implies structured approach |
+| Cache hit ratio | Security & Compliance (reuse patterns) | High ratio = consistent context reuse; implies shared practices |
+| Tool diversity | Cross-System Connectivity | Multiple tools = integrations active |
+| Prompt consistency (variation) | Accountability & Ownership | Low variation = strong champion or shared templates |
+| New developer ramp time | Scalability & Knowledge Transfer | Time to baseline productivity with AI |
+| /review adoption | Quality Controls | % of PRs reviewed by AI |
+| CLAUDE.md presence | Prompt & Context Engineering | Indicator of shared context strategy |
 
 ---
 
