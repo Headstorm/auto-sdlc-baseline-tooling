@@ -36,7 +36,7 @@ The goal is to help teams understand:
 | **11** | | Accountability & Ownership | Is AI adoption owned by a specific person/team? |
 | **12** | | Scalability & Knowledge Transfer | Can new developers be productive with AI quickly? |
 
-**For detailed L1-L4 definitions:** See `AI_Maturity_Scorecard.xlsx` (reference file from ideal-team-vision.pdf context).
+**For detailed L1-L4 definitions per sub-dimension:** See below or `AI_Maturity_Scorecard.xlsx` (reference file from ideal-team-vision.pdf context).
 
 ---
 
@@ -182,11 +182,6 @@ For each dimension:
 
 **Output:** Maturity score per dimension with confidence; roadmap to next level
 
-### Phase 5: Deep Analysis
-Parse configs for sophistication signals; analyze maintenance patterns (git blame, freshness dates).
-
-**Output:** Detailed metrics and capability inventory for report appendices
-
 ---
 
 ## What This Is & Isn't
@@ -310,19 +305,3 @@ The report is **not a dashboard or auto-score.** It's a narrative document that 
 - Is there a prompt library or playbook for common tasks?
 - How quickly do new team members become productive with AI?
 
----
-
-### SECTION 5: Value Realization (KPIs, Business Impact)
-
-**Baseline Measurement:**
-- Do you track DORA metrics? (PR cycle time, deployment frequency, change failure rate)
-- Are these metrics trusted and acted upon?
-
-**AI Impact Measurement:**
-- Have you measured AI's impact? Pre/post baselines?
-- Is improvement quantified or anecdotal?
-
-**Business Alignment:**
-- Is AI tied to business outcomes? (EBITDA, revenue, cost reduction, speed)
-
----

@@ -174,3 +174,115 @@ def init_cmd():
 def audit():
     """Audit installed capabilities against baseline."""
     run_audit()
+
+
+@cli.command(name="report")
+@click.option(
+    "--user-id",
+    required=True,
+    help="User/team identifier for report attribution.",
+)
+@click.option(
+    "--project-path",
+    required=True,
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    help="Path to project directory with logs, CLAUDE.md, etc.",
+)
+@click.option(
+    "--output-dir",
+    default=None,
+    type=click.Path(file_okay=False, dir_okay=True),
+    help="Where to save PDF report. Defaults to ~/.auto-sdlc/reports/",
+)
+@click.option(
+    "--report-type",
+    type=click.Choice(["team", "individual"], case_sensitive=False),
+    default="team",
+    help="Report type: 'team' or 'individual'. Defaults to 'team'.",
+)
+@click.option(
+    "--assessment-responses",
+    default=None,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="Optional: Path to JSON file with assessment question answers.",
+)
+@click.option(
+    "--team-baseline",
+    default=None,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="Optional: Path to JSON file with team average scores (for individual reports).",
+)
+def report(user_id, project_path, output_dir, report_type, assessment_responses, team_baseline):
+    """
+    Generate an AI Maturity Report from project evidence.
+
+    Orchestrates the complete pipeline:
+    Evidence Extraction → Assessment → Scoring → Roadmaps → Report Building → PDF Rendering
+
+    EXAMPLES:
+
+    Generate a team report:
+    \b
+      auto-sdlc report \\
+        --user-id platform_team \\
+        --project-path /path/to/project
+
+    Generate an individual report with team baseline:
+    \b
+      auto-sdlc report \\
+        --user-id developer_name \\
+        --project-path /path/to/project \\
+        --report-type individual \\
+        --team-baseline ./team_baseline.json
+
+    Generate team report with assessment answers:
+    \b
+      auto-sdlc report \\
+        --user-id platform_team \\
+        --project-path /path/to/project \\
+        --output-dir ./reports \\
+        --assessment-responses ./responses.json
+
+    ASSESSMENT RESPONSES FILE FORMAT:
+    \b
+      [
+        {
+          "question_id": "AI_TOOL_ADOPTION_1",
+          "answer": "Team uses Claude primarily",
+          "confidence": "certain",
+          "notes": "Optional additional context"
+        },
+        ...
+      ]
+
+    TEAM BASELINE FILE FORMAT:
+    \b
+      {
+        "AI Tool Adoption": 2.5,
+        "Prompt & Context Engineering": 2.3,
+        ...
+      }
+    """
+    try:
+        from auto_sdlc.reports.pipeline import ReportGenerationPipeline
+
+        pipeline = ReportGenerationPipeline()
+        report_obj, pdf_path = pipeline.generate_report(
+            user_id=user_id,
+            project_path=project_path,
+            report_type=report_type.lower(),
+            assessment_responses=assessment_responses,
+            team_baseline=team_baseline,
+            output_dir=output_dir,
+        )
+
+        click.echo(f"✓ Report generated successfully")
+        click.echo(f"  Type: {report_type}")
+        click.echo(f"  File: {pdf_path}")
+
+    except FileNotFoundError as e:
+        raise click.ClickException(f"File not found: {e}")
+    except ValueError as e:
+        raise click.ClickException(f"Invalid input: {e}")
+    except Exception as e:
+        raise click.ClickException(f"Report generation failed: {e}")
