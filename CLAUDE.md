@@ -345,20 +345,6 @@ These questions help verify maturity levels. They should be asked during team in
 
 ---
 
-### SECTION 5: Value Realization & KPI
-
-**5.1 Baseline Measurement**
-- Do you track DORA metrics? (PR cycle time, deployment frequency, change failure rate, lead time)
-- Are these metrics trusted and acted upon?
-
-**5.2 AI Impact Measurement**
-- Have you measured AI's impact? Pre/post baselines?
-- Is improvement quantified or anecdotal?
-
-**5.3 Business Alignment**
-- Is AI tied to business outcomes? (EBITDA, revenue, cost reduction, delivery speed)
-
----
 
 ## Critical Philosophy: Holistic Understanding Over Numbers
 
@@ -504,14 +490,72 @@ Not just: "They score 2.3 on dimension X."
 
 ---
 
+## Three Data Sources for Assessment
+
+The tool ingests from **three independent sources**, not just logs:
+
+### 1. **Logs** (Behavioral Evidence)
+What developers actually do with Claude Code:
+- Session frequency, duration, depth
+- Prompt quality, tool invocations, /commands used
+- Error patterns, recovery behaviors
+- Data handling patterns, context reuse
+
+**Signal:** Usage patterns, adoption, discipline
+
+### 2. **Configs** (Documented Practices)
+Configuration files checked into the repo:
+- **CLAUDE.md** — Project context, architecture, conventions, known gotchas
+- **AGENTS.md** — Custom agent definitions, orchestration rules
+- **.rules** — Coding standards, quality gates, governance rules
+- **settings.json** — Tool configuration, approved integrations, compliance settings
+
+**Signal:** Intentionality, documentation, governance
+
+### 3. **Capabilities** (Built Infrastructure)
+What the team has actually constructed:
+- **Custom Skills** — /review, /commit, /plan, etc. (in Claude Code)
+- **Commands** — Defined slash commands and automation
+- **Agents** — Multi-step agents, orchestration logic
+- **Plugins/MCP** — Integrations to JIRA, GitHub, Slack, docs, etc.
+
+**Signal:** Investment, integration, sophistication
+
+---
+
+## Why Three Sources Matter: Triangulation
+
+**Example: Assessing "Quality Controls" (L2 requirement: Linting + review checklists)**
+
+| Source | Evidence | Interpretation |
+|--------|----------|-----------------|
+| **Logs** | 80% /review adoption, test generation in 45% of sessions | Team actively uses review; some testing |
+| **Configs** | CLAUDE.md has PR review section; .rules defines linting rules; settings.json has quality gates | Quality practices are documented, not ad-hoc |
+| **Capabilities** | Custom /review skill exists; /lint skill configured; test generation skill | Team invested in automation; tools aren't manual |
+
+**Assessment:** ✅ **L2 Integrated** — Logs show practice, configs show intentionality, capabilities show infrastructure. All three sources align.
+
+---
+
+**Contrast with Team B (same logs, different configs/capabilities):**
+
+| Source | Evidence | Interpretation |
+|--------|----------|-----------------|
+| **Logs** | 80% /review adoption, test generation in 45% of sessions | Same behavior as Team A |
+| **Configs** | No CLAUDE.md, no quality rules, settings.json defaults only | Practices undocumented; ad-hoc |
+| **Capabilities** | No custom skills; using Copilot defaults; no configured linting | No infrastructure investment |
+
+**Assessment:** ⚠️ **L1-L2 Boundary** — Logs look good, but configs show no documentation and capabilities show no infrastructure. Unsustainable. At risk of regression if champion leaves.
+
+---
+
 ## Implementation Roadmap
 
-**Core Principle:** The goal is to enable better qualitative assessment and discovery, not to automate scoring. Logs provide supporting evidence; people provide understanding.
+**Core Principle:** The goal is to enable better qualitative assessment and discovery, not to automate scoring. Evidence from three sources provides triangulation; people provide understanding.
 
-### Phase 1: Extract Supporting Evidence from Logs
-Add detection logic to the log analyzer to surface patterns that facilitate assessment questions:
+### Phase 1: Extract Supporting Evidence from All Three Sources
 
-**Evidence Categories:**
+**From Logs:**
 - **Tool diversity:** Which tools are invoked; consistency across team
 - **Command usage:** /review, /commit, /plan frequency (signals of practice)
 - **Context patterns:** CLAUDE.md loading, early-session behavior (signals of discipline)
@@ -519,40 +563,72 @@ Add detection logic to the log analyzer to surface patterns that facilitate asse
 - **Testing signals:** Test generation %, coverage validation
 - **Data handling:** Scan for PII/sensitive patterns (compliance signals)
 - **Session structure:** Opening protocol consistency (signals process maturity)
-- **Consistency metrics:** Prompt variation across team (signals shared standards)
+- **Consistency metrics:** Prompt variation across team, champion behavior detection
+
+**From Configs (CLAUDE.md, AGENTS.md, .rules, settings.json):**
+- **CLAUDE.md presence & quality:** Does it exist? Current? Covers architecture, conventions, gotchas?
+- **AGENTS.md:** Are agents defined explicitly? Orchestration rules documented?
+- **.rules:** Are coding standards codified? Quality gates defined?
+- **settings.json:** Which tools approved? Compliance settings configured? MCP integrations declared?
+
+**From Capabilities (Skills, Commands, Agents, MCP):**
+- **Custom skills:** What /commands exist? (/review, /commit, /plan, custom domain skills)
+- **Agents:** How many? Multi-step? Orchestrated? Error handling?
+- **MCP integrations:** Active integrations (GitHub, JIRA, Slack, Confluence, docs?)
+- **Plugins:** What's installed? Enabled? Configured?
 
 **Output:** Evidence dashboard per dimension
 ```json
 {
   "dimension_signals": {
-    "ai_tool_adoption": {
-      "tools_detected": ["claude_code", "copilot"],
-      "adoption_rate": "72% of team",
-      "tool_consistency": "High (99% Claude Code)"
-    },
-    "prompt_context_engineering": {
-      "avg_quality": 73,
-      "claude_md_detected": true,
-      "context_loading_pattern": "Consistent at session start",
-      "architectural_refs": "42% of prompts"
+    "quality_controls": {
+      "logs": {
+        "review_adoption": "80% of sessions",
+        "test_generation": "45% of sessions"
+      },
+      "configs": {
+        "claude_md_has_review_section": true,
+        "rules_file_exists": true,
+        "pr_checklist_documented": true
+      },
+      "capabilities": {
+        "review_skill_exists": true,
+        "lint_skill_configured": true,
+        "test_generation_skill": true
+      }
     },
     "accountability_ownership": {
-      "claude_md_authors": ["alice@co.com", "bob@co.com"],
-      "champion_candidate": "alice@co.com (high consistency, mentorship signals)",
-      "prompt_library_curator": "Detected patterns suggest responsibility here"
+      "logs": {
+        "claude_md_authors": ["alice@co.com", "bob@co.com"],
+        "champion_candidate": "alice@co.com (high consistency, mentorship signals)"
+      },
+      "configs": {
+        "champion_named_in_agents_md": true,
+        "responsibilities_documented": false,
+        "claude_md_maintenance_owner": "alice@co.com (git blame analysis)"
+      },
+      "capabilities": {
+        "custom_skills_created": 3,
+        "skill_diversity_suggests": "Intentional agent architecture"
+      }
     }
   }
 }
 ```
 
-**Purpose:** Provide assessors with concrete observations to probe deeper, not to auto-score.
+**Purpose:** Provide assessors with triangulated evidence from all three sources. Contradictions are signals for deeper investigation, not reasons to dismiss sources.
 
 ### Phase 2: Generate Assessment Question Facilitator
 Build a guided interview UI that:
-1. Shows relevant evidence from logs for each question
+1. Shows triangulated evidence (logs + configs + capabilities) for each question
 2. Asks the 50 assessment questions from the template (organized by dimension)
 3. Allows the assessor to record answers (L1-L4 per question)
-4. Flags contradictions (logs show high /review adoption, but team says "no policy")
+4. Flags contradictions and misalignments:
+   - **Logs-Config mismatch:** "Logs show /review in 80% of sessions, but CLAUDE.md has no review policy"
+   - **Config-Capability mismatch:** ".rules file defines linting standards, but no /lint skill exists"
+   - **Capability-Log mismatch:** "5 custom skills exist, but only 2 are actively used in sessions"
+
+These misalignments are research opportunities, not errors to ignore.
 
 **Output:** Qualitative assessment responses
 ```json
@@ -596,31 +672,60 @@ Check for tangible evidence of maturity:
 }
 ```
 
-### Phase 4: Synthesis Report (Human-Driven)
-Combine signals into a holistic assessment:
+### Phase 4: Synthesis Report (Human-Driven, Three-Source Triangulation)
+Combine signals from **Logs, Configs, and Capabilities** into a holistic assessment:
 
 **For each dimension:**
-1. **Evidence from logs:** "72% adoption, consistent tool choice"
-2. **Answers to assessment questions:** "Team standardized on Claude Code; licenses managed; no fragmentation"
-3. **Artifact verification:** "CLAUDE.md in all repos, current, quality content"
-4. **Synthesized maturity:** "L2 - Integrated" (all three sources align)
-5. **Confidence:** "High" (triangulation confirms)
-6. **Gaps/next steps:** "To reach L3: implement multi-agent orchestration"
+1. **Evidence from Logs:** "72% adoption, consistent tool choice"
+2. **Evidence from Configs (CLAUDE.md, AGENTS.md, .rules, settings.json):** "Tool standardization documented; Claude Code + Copilot approved; centralized licensing configured"
+3. **Evidence from Capabilities (Skills, Commands, Agents, MCP):** "Custom /review, /commit, /plan skills built; 2+ MCP integrations active"
+4. **Answers to assessment questions:** "Team says: 'Tech lead enforces Claude Code; all 18 devs have licenses; no tool fragmentation'"
+5. **Synthesized maturity:** "L2 - Integrated" (all four sources align)
+6. **Confidence:** "High" (triangulation confirms; logs + configs + capabilities + answers all point to L2)
+7. **Gaps/next steps:** "To reach L3: implement multi-agent orchestration, add AGENTS.md definitions, deploy 2+ new MCP integrations"
 
-**This is NOT automated.** An assessor reads logs + evidence, asks questions, checks artifacts, then makes the call.
+**If sources DON'T align:**
+- **Logs high, configs low:** "Team uses AI actively, but practices undocumented — risk of regression"
+- **Configs high, capabilities low:** "Documented standards exist, but not built into actual skills/tools — implementation gap"
+- **Capabilities exist, logs show low adoption:** "Infrastructure built but not used — usage training needed"
 
-### Phase 5: CLAUDE.md and Knowledge Artifact Parsing
-Future: Extract and analyze CLAUDE.md files to understand:
+These misalignments are more valuable than alignment. They highlight where to focus improvement.
+
+**This is NOT automated.** An assessor reads logs + configs + capabilities evidence, asks questions, synthesizes all sources, then makes the call.
+
+### Phase 5: Deep Knowledge Artifact Analysis
+Future: Extract, parse, and analyze config/capability files to understand:
+
+**CLAUDE.md Analysis:**
 - **Coverage:** % of active repos with CLAUDE.md
 - **Completeness:** Does it include architecture, conventions, gotchas, domain context?
 - **Freshness:** Last updated date (signals maintenance)
 - **Quality:** Depth of architecture explanation, clarity of conventions
 - **Usage:** How often do developers reference it in logs?
 
+**AGENTS.md Analysis:**
+- **Defined agents:** How many? Sophisticated orchestration?
+- **Error handling:** Explicit error recovery paths?
+- **Documentation:** Clear handoff protocols between agents?
+
+**.rules Analysis:**
+- **Quality gates:** Automated linting, test coverage, complexity checks?
+- **Review requirements:** AI-specific review steps?
+- **Compliance rules:** Data handling, security gates?
+
+**Capabilities Analysis:**
+- **Skill coverage:** Which workflows have custom skills vs. manual work?
+- **Skill recentness:** When last updated? Signs of maintenance?
+- **MCP saturation:** Which integrations exist? Which are gaps?
+- **Adoption correlation:** Do skills in capabilities match usage in logs?
+
 This feeds into:
-- **Prompt & Context Engineering** — Shared templates + reuse
-- **Ways of Working** — Documented standards
-- **Accountability & Ownership** — Champion maintained it
+- **Prompt & Context Engineering** — CLAUDE.md quality + coverage
+- **Agent Configuration** — AGENTS.md sophistication + Capabilities count
+- **Ways of Working** — Config completeness + process documentation
+- **Accountability & Ownership** — Config maintenance patterns (git blame, freshness)
+- **Quality Controls** — .rules enforcement + automated gates
+- **Cross-System Connectivity** — MCP integrations declared in configs vs. used in logs
 
 ---
 
