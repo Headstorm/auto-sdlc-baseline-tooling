@@ -1,7 +1,9 @@
 """Central collection server for auto-sdlc reports."""
 import json
 import logging
+import queue
 import tempfile
+import threading
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -9,7 +11,7 @@ from typing import Optional, Dict, Any
 
 try:
     from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-    from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+    from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse, StreamingResponse
     from pydantic import BaseModel, Field
 except ImportError:
     raise ImportError("Server dependencies not installed. Run: pip install auto-sdlc[server]")
@@ -101,115 +103,305 @@ def create_app(reports_dir):
         return {"status": "ok", "reports_dir": str(reports_path)}
 
     @app.get("/", response_class=HTMLResponse)
-    def upload_form(request: Request):
-        """Landing page — CLI-first, upload as fallback."""
-        # Inject the actual server URL into the command
-        server_url = "{}://{}".format(request.url.scheme, request.url.netloc)
-        export_url = "{}/reports".format(server_url)
-
+    def landing_page():
+        """Landing page - report generation UI with SSE progress bars."""
         return """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Auto-SDLC — Developer Log Analysis</title>
+  <title>Auto-SDLC &#8212; Generate AI Maturity Report</title>
   <style>
-    *{{margin:0;padding:0}}
-    body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fa;color:#222}}
-    .container{{max-width:600px;margin:0 auto;padding:40px 24px}}
-    h1{{font-size:24px;margin-bottom:8px}}
-    .subtitle{{font-size:14px;color:#666;margin-bottom:32px}}
-    .section{{background:white;border-radius:8px;padding:24px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.1)}}
-    .step{{margin-bottom:16px}}
-    .step-num{{display:inline-block;background:#4a90d9;color:white;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;margin-right:8px;font-size:13px;font-weight:600}}
-    .step-title{{font-weight:600;margin-bottom:8px}}
-    .code-block{{background:#f5f5f5;border-left:3px solid #4a90d9;padding:12px;border-radius:4px;font-family:monospace;font-size:12px;overflow-x:auto;margin:8px 0}}
-    .code-block code{{color:#333}}
-    .copy-btn{{background:#4a90d9;color:white;border:none;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;margin-left:8px}}
-    .copy-btn:hover{{background:#357abd}}
-    button{{margin-top:12px;padding:10px 16px;background:#4a90d9;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px}}
-    button:hover{{background:#357abd}}
-    .advanced{{margin-top:20px;border-top:1px solid #eee;padding-top:20px}}
-    .toggle{{cursor:pointer;user-select:none;color:#4a90d9}}
-    .toggle:hover{{text-decoration:underline}}
-    #upload-form{{display:none;margin-top:16px}}
-    label{{display:block;font-size:13px;font-weight:600;color:#444;margin:12px 0 6px 0}}
-    input[type=email],input[type=file]{{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:13px}}
-    .info{{background:#e8f4f8;border-left:3px solid #4a90d9;padding:12px;border-radius:4px;margin:12px 0;font-size:13px}}
-    a{{color:#4a90d9;text-decoration:none}}
-    a:hover{{text-decoration:underline}}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #222;
+      min-height: 100vh;
+    }
+    header {
+      background: #003366;
+      color: white;
+      padding: 20px 24px;
+      text-align: center;
+    }
+    header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    header p { font-size: 13px; color: #a8c4e0; margin-top: 4px; }
+    .container {
+      max-width: 640px;
+      margin: 32px auto;
+      padding: 0 16px 48px;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 28px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+      margin: 16px 0 6px;
+    }
+    input[type=text], select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #222;
+      background: #fafafa;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    input[type=text]:focus, select:focus {
+      border-color: #003366;
+      background: white;
+    }
+    #generate-btn {
+      margin-top: 22px;
+      width: 100%;
+      padding: 12px;
+      background: #003366;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #generate-btn:hover:not(:disabled) { background: #00509e; }
+    #generate-btn:disabled { background: #99aabb; cursor: not-allowed; }
+    #progress-section { margin-top: 24px; }
+    .phase-block { margin-bottom: 18px; }
+    .phase-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .phase-name { font-size: 13px; font-weight: 600; color: #333; }
+    .phase-pct { font-size: 12px; color: #666; min-width: 36px; text-align: right; }
+    .bar-track {
+      width: 100%;
+      height: 10px;
+      background: #e2e8f0;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #3b82f6;
+      border-radius: 5px;
+      transition: width 0.35s ease, background-color 0.4s ease;
+    }
+    .bar-fill.done { background: #22c55e; }
+    .bar-fill.active {
+      background: linear-gradient(90deg, #3b82f6 60%, #60a5fa 100%);
+      animation: pulse-bar 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse-bar {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.75; }
+    }
+    #status-msg {
+      text-align: center;
+      font-size: 13px;
+      color: #555;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+    #download-section {
+      text-align: center;
+      margin-top: 28px;
+      padding: 24px;
+      border-top: 1px solid #e5e7eb;
+    }
+    #download-section p {
+      font-size: 15px;
+      font-weight: 600;
+      color: #16a34a;
+      margin-bottom: 16px;
+    }
+    #download-link {
+      display: inline-block;
+      padding: 12px 28px;
+      background: #003366;
+      color: white;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    #download-link:hover { background: #00509e; }
+    #error-section {
+      margin-top: 20px;
+      padding: 14px 16px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+    }
+    #error-msg { font-size: 13px; color: #b91c1c; }
   </style>
 </head>
 <body>
+  <header>
+    <h1>AI Maturity Assessment Report</h1>
+    <p>Generate a professional PDF report measuring your team&#39;s AI maturity across 12 dimensions.</p>
+  </header>
   <div class="container">
-    <h1>Auto-SDLC Log Analysis</h1>
-    <p class="subtitle">Submit your Claude Code session logs and see your maturity report</p>
-
-    <div class="section">
-      <div class="step">
-        <span class="step-num">1</span>
-        <div class="step-title">Install the CLI (if needed)</div>
-        <div class="code-block"><code>pip install auto-sdlc</code></div>
+    <div class="card">
+      <div id="form-section">
+        <label for="user-id">Team Name</label>
+        <input type="text" id="user-id" placeholder="e.g. platform_team">
+        <label for="project-path">Project Path</label>
+        <input type="text" id="project-path" placeholder="/path/to/your/project">
+        <label for="report-type">Report Type</label>
+        <select id="report-type">
+          <option value="team">Team Report (8&#8211;12 pages)</option>
+          <option value="individual">Individual Report (4&#8211;6 pages)</option>
+        </select>
+        <button id="generate-btn" onclick="startGeneration()">Generate Report</button>
       </div>
-
-      <div class="step">
-        <span class="step-num">2</span>
-        <div class="step-title">Submit your logs (one-time)</div>
-        <div class="code-block"><code>auto-sdlc logs \\<br>&nbsp;&nbsp;--user-id you@company.com \\<br>&nbsp;&nbsp;--export-url {export_url}</code></div>
-        <button class="copy-btn" onclick="copyCommand()">Copy Command</button>
-        <div class="info">
-          This command reads your <code>~/.claude/projects/</code> and sends your session logs to this server.
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="advanced">
-        <div class="toggle" onclick="toggleUpload()">
-          ▶ Advanced: Upload ZIP manually
-        </div>
-        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
-          <label>Your email address</label>
-          <input type="email" name="user_id" placeholder="you@company.com" required>
-          <label>Claude logs ZIP file</label>
-          <input type="file" name="logs_zip" accept=".zip" required>
-          <button type="submit">Upload &amp; Analyze</button>
-          <div class="info" style="margin-top:12px">
-            Create ZIP: <code>cd ~/.claude && zip -r ~/claude-logs.zip projects/</code>
+      <div id="progress-section" style="display:none">
+        <div class="phase-block">
+          <div class="phase-header">
+            <span class="phase-name" id="phase-label-1">Phase 1: Extracting evidence</span>
+            <span class="phase-pct" id="phase-pct-1">0%</span>
           </div>
-        </form>
+          <div class="bar-track"><div class="bar-fill" id="bar-1"></div></div>
+        </div>
+        <div class="phase-block">
+          <div class="phase-header">
+            <span class="phase-name" id="phase-label-2">Phase 2: Scoring maturity</span>
+            <span class="phase-pct" id="phase-pct-2">0%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="bar-2"></div></div>
+        </div>
+        <div class="phase-block">
+          <div class="phase-header">
+            <span class="phase-name" id="phase-label-3">Phase 3: Building report</span>
+            <span class="phase-pct" id="phase-pct-3">0%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="bar-3"></div></div>
+        </div>
+        <div class="phase-block">
+          <div class="phase-header">
+            <span class="phase-name" id="phase-label-4">Phase 4: Rendering PDF</span>
+            <span class="phase-pct" id="phase-pct-4">0%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="bar-4"></div></div>
+        </div>
+        <div id="status-msg">Starting&#8230;</div>
       </div>
-    </div>
-
-    <div class="section" style="text-align:center;background:#f9f9f9">
-      <p style="font-size:13px;color:#666">
-        After submission, view your report or<br><a href="/team/html">see the team dashboard →</a>
-      </p>
+      <div id="download-section" style="display:none">
+        <p>Report generated successfully!</p>
+        <a id="download-link" href="#" download>Download PDF Report</a>
+      </div>
+      <div id="error-section" style="display:none">
+        <p id="error-msg"></p>
+      </div>
     </div>
   </div>
-
   <script>
-    function copyCommand() {{
-      const cmd = `auto-sdlc logs --user-id you@company.com --export-url {export_url}`;
-      navigator.clipboard.writeText(cmd).then(() => {{
-        alert('Command copied to clipboard!');
-      }}).catch(() => {{
-        alert('Could not copy. Please copy manually.');
-      }});
-    }}
-    function toggleUpload() {{
-      const form = document.getElementById('upload-form');
-      const toggle = event.target;
-      if (form.style.display === 'none') {{
-        form.style.display = 'block';
-        toggle.textContent = '▼ Advanced: Upload ZIP manually';
-      }} else {{
-        form.style.display = 'none';
-        toggle.textContent = '▶ Advanced: Upload ZIP manually';
-      }}
-    }}
+    async function startGeneration() {
+      const userId = document.getElementById('user-id').value.trim();
+      const projectPath = document.getElementById('project-path').value.trim();
+      const reportType = document.getElementById('report-type').value;
+      if (!userId) { alert('Please enter a Team Name.'); return; }
+      if (!projectPath) { alert('Please enter a Project Path.'); return; }
+      document.getElementById('generate-btn').disabled = true;
+      document.getElementById('progress-section').style.display = 'block';
+      document.getElementById('download-section').style.display = 'none';
+      document.getElementById('error-section').style.display = 'none';
+      for (let i = 1; i <= 4; i++) {
+        const bar = document.getElementById('bar-' + i);
+        bar.style.width = '0%';
+        bar.className = 'bar-fill';
+        document.getElementById('phase-pct-' + i).textContent = '0%';
+      }
+      document.getElementById('status-msg').textContent = 'Starting\u2026';
+      let activePhase = 0;
+      try {
+        const resp = await fetch('/generate-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, project_path: projectPath, report_type: reportType }),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          showError('Server error: ' + errText);
+          return;
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop();
+          for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith('data:')) continue;
+            const jsonStr = line.slice(5).trim();
+            let msg;
+            try { msg = JSON.parse(jsonStr); } catch { continue; }
+            if (msg.error) { showError(msg.error); return; }
+            if (msg.done) {
+              for (let i = 1; i <= 4; i++) {
+                const bar = document.getElementById('bar-' + i);
+                bar.style.width = '100%';
+                bar.className = 'bar-fill done';
+                document.getElementById('phase-pct-' + i).textContent = '100%';
+              }
+              document.getElementById('status-msg').textContent = '';
+              document.getElementById('download-link').href = msg.download_url;
+              document.getElementById('download-section').style.display = 'block';
+              document.getElementById('generate-btn').disabled = false;
+              return;
+            }
+            if (msg.phase !== undefined) {
+              const phase = msg.phase;
+              const pct = Math.round((msg.pct || 0) * 100);
+              const bar = document.getElementById('bar-' + phase);
+              const pctEl = document.getElementById('phase-pct-' + phase);
+              if (msg.label) {
+                document.getElementById('phase-label-' + phase).textContent = 'Phase ' + phase + ': ' + msg.label;
+              }
+              if (phase > activePhase) {
+                if (activePhase > 0) {
+                  const prevBar = document.getElementById('bar-' + activePhase);
+                  prevBar.style.width = '100%';
+                  prevBar.className = 'bar-fill done';
+                  document.getElementById('phase-pct-' + activePhase).textContent = '100%';
+                }
+                activePhase = phase;
+                bar.className = 'bar-fill active';
+              }
+              bar.style.width = pct + '%';
+              pctEl.textContent = pct + '%';
+              document.getElementById('status-msg').textContent = 'Phase ' + phase + ': ' + (msg.label || '') + ' \u2014 ' + pct + '%';
+            }
+          }
+        }
+      } catch (err) {
+        showError('Connection error: ' + err.message);
+      }
+    }
+    function showError(msg) {
+      document.getElementById('error-msg').textContent = msg;
+      document.getElementById('error-section').style.display = 'block';
+      document.getElementById('generate-btn').disabled = false;
+    }
   </script>
 </body>
-</html>""".format(export_url=export_url)
+</html>"""
 
     @app.post("/upload")
     async def upload_logs(user_id: str = Form(...), logs_zip: UploadFile = File(...)):
@@ -336,6 +528,65 @@ def create_app(reports_dir):
         # Extract just the report dicts (second element of tuples) for metrics calculation
         report_dicts = [r for _, r in user_reports]
         return render_team_html(report, report_dicts)
+
+    # ========================================================================
+    # SSE REPORT GENERATION ENDPOINTS
+    # ========================================================================
+
+    @app.post("/generate-report")
+    async def generate_report_stream(request: Request):
+        """Stream report generation progress via SSE."""
+        body = await request.json()
+        user_id = body.get("user_id", "").strip()
+        project_path = body.get("project_path", "").strip()
+        report_type = body.get("report_type", "team")
+
+        if not user_id or not project_path:
+            raise HTTPException(status_code=400, detail="user_id and project_path required")
+
+        q = queue.Queue()
+
+        def run_pipeline():
+            def callback(phase, label, pct):
+                q.put({"phase": phase, "label": label, "pct": pct})
+            try:
+                pipeline = ReportGenerationPipeline()
+                report_obj, pdf_path = pipeline.generate_report(
+                    user_id=user_id,
+                    project_path=project_path,
+                    report_type=report_type,
+                    output_dir=str(reports_path),
+                    progress_callback=callback,
+                )
+                filename = pdf_path.name
+                q.put({"done": True, "download_url": f"/download-report/{filename}"})
+            except Exception as e:
+                logger.exception(f"Pipeline error: {e}")
+                q.put({"error": str(e)})
+
+        thread = threading.Thread(target=run_pipeline, daemon=True)
+        thread.start()
+
+        def event_stream():
+            while True:
+                msg = q.get()
+                yield f"data: {json.dumps(msg)}\n\n"
+                if "done" in msg or "error" in msg:
+                    break
+
+        return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+    @app.get("/download-report/{filename}")
+    def download_report(filename: str):
+        """Serve a generated PDF report for download."""
+        pdf_path = reports_path / filename
+        if not pdf_path.exists():
+            raise HTTPException(status_code=404, detail="Report not found")
+        return FileResponse(
+            path=pdf_path,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     # ========================================================================
     # REPORT GENERATION API ENDPOINTS
