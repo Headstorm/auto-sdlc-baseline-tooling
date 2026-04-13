@@ -1,10 +1,11 @@
 """Central collection server for auto-sdlc reports."""
+import asyncio
 import json
 import logging
-import queue
 import tempfile
 import threading
 import zipfile
+from urllib.parse import quote
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -17,7 +18,7 @@ except ImportError:
     raise ImportError("Server dependencies not installed. Run: pip install auto-sdlc[server]")
 
 from auto_sdlc.logs.team import build_team_report, render_team_html
-from auto_sdlc.reports.pipeline import ReportGenerationPipeline
+from auto_sdlc.reports.service import ReportService
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,6 @@ class StatusResponse(BaseModel):
     capabilities: list = Field(default_factory=lambda: [
         "team_reports", "individual_reports", "assessment_integration"
     ])
-    sample_command: str = "auto-sdlc report --user-id test --project-path /path"
 
 
 class ErrorResponse(BaseModel):
@@ -535,7 +535,6 @@ def create_app(reports_dir):
 
     @app.post("/generate-report")
     async def generate_report_stream(request: Request):
-        """Stream report generation progress via SSE."""
         body = await request.json()
         user_id = body.get("user_id", "").strip()
         project_path = body.get("project_path", "").strip()
@@ -544,48 +543,65 @@ def create_app(reports_dir):
         if not user_id or not project_path:
             raise HTTPException(status_code=400, detail="user_id and project_path required")
 
-        q = queue.Queue()
+        if report_type not in ("team", "individual"):
+            raise HTTPException(status_code=400, detail="report_type must be 'team' or 'individual'")
+
+        loop = asyncio.get_event_loop()
+        aq = asyncio.Queue()
+
+        def callback(phase, label, pct):
+            loop.call_soon_threadsafe(aq.put_nowait, {"phase": phase, "label": label, "pct": pct})
 
         def run_pipeline():
-            def callback(phase, label, pct):
-                q.put({"phase": phase, "label": label, "pct": pct})
             try:
-                pipeline = ReportGenerationPipeline()
-                report_obj, pdf_path = pipeline.generate_report(
+                service = ReportService()
+                _, pdf_path = service.generate_report(
                     user_id=user_id,
                     project_path=project_path,
                     report_type=report_type,
                     output_dir=str(reports_path),
                     progress_callback=callback,
                 )
-                filename = pdf_path.name
-                q.put({"done": True, "download_url": f"/download-report/{filename}"})
+                loop.call_soon_threadsafe(
+                    aq.put_nowait,
+                    {"done": True, "download_url": f"/download-report/{pdf_path.name}"}
+                )
             except Exception as e:
-                logger.exception(f"Pipeline error: {e}")
-                q.put({"error": str(e)})
+                logger.exception(f"Report generation error: {e}")
+                loop.call_soon_threadsafe(aq.put_nowait, {"error": str(e)})
 
         thread = threading.Thread(target=run_pipeline, daemon=True)
         thread.start()
 
-        def event_stream():
+        async def event_stream():
             while True:
-                msg = q.get()
+                try:
+                    msg = await asyncio.wait_for(aq.get(), timeout=300)
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'error': 'Generation timed out'})}\n\n"
+                    break
                 yield f"data: {json.dumps(msg)}\n\n"
                 if "done" in msg or "error" in msg:
                     break
 
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @app.get("/download-report/{filename}")
     def download_report(filename: str):
         """Serve a generated PDF report for download."""
-        pdf_path = reports_path / filename
+        pdf_path = (reports_path / filename).resolve()
+        if not pdf_path.is_relative_to(reports_path.resolve()):
+            raise HTTPException(status_code=400, detail="Invalid filename")
         if not pdf_path.exists():
             raise HTTPException(status_code=404, detail="Report not found")
         return FileResponse(
             path=pdf_path,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
         )
 
     # ========================================================================
@@ -597,7 +613,7 @@ def create_app(reports_dir):
         """
         Check server health and report generation status.
 
-        Returns capabilities and server version information.
+        Returns server version, capabilities, and status information.
         """
         return StatusResponse()
 
@@ -718,9 +734,9 @@ def create_app(reports_dir):
                 f"project_path={request.project_path}"
             )
 
-            # Generate report using pipeline
-            pipeline = ReportGenerationPipeline()
-            report_obj, pdf_path = pipeline.generate_report(
+            # Generate report using service
+            service = ReportService()
+            report_obj, pdf_path = service.generate_report(
                 user_id=request.user_id,
                 project_path=str(project_path),
                 report_type=request.report_type,
