@@ -1,9 +1,10 @@
 """File extraction utilities for upload handling."""
 
+import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Tuple
 
 
 def extract_logs_zip(zip_bytes: bytes) -> Tuple[Path, Path]:
@@ -16,6 +17,8 @@ def extract_logs_zip(zip_bytes: bytes) -> Tuple[Path, Path]:
     - extracted_root/*.jsonl
 
     Returns: (temp_dir, projects_dir_with_logs)
+
+    Note: Caller is responsible for cleaning up temp_dir when done.
 
     Raises: ValueError if no .jsonl files found
     """
@@ -44,7 +47,6 @@ def extract_logs_zip(zip_bytes: bytes) -> Tuple[Path, Path]:
 
     except Exception as e:
         # Clean up on error
-        import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise
 
@@ -84,7 +86,6 @@ def create_project_structure(logs_dir: Path, temp_root: Path) -> Path:
     logs_dest = project_dir / "logs"
 
     # Copy logs
-    import shutil
     if logs_dir.exists():
         shutil.copytree(logs_dir, logs_dest, dirs_exist_ok=True)
 
