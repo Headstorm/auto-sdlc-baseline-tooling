@@ -129,9 +129,33 @@ def create_app(reports_dir):
     header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
     header p { font-size: 13px; color: #a8c4e0; margin-top: 4px; }
     .container {
-      max-width: 640px;
+      max-width: 720px;
       margin: 32px auto;
       padding: 0 16px 48px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 24px;
+    }
+    .tab-button {
+      flex: 1;
+      padding: 12px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-button.active {
+      color: #003366;
+      border-bottom-color: #003366;
+    }
+    .tab-button:hover {
+      color: #003366;
     }
     .card {
       background: white;
@@ -146,7 +170,7 @@ def create_app(reports_dir):
       color: #444;
       margin: 16px 0 6px;
     }
-    input[type=text], select {
+    input[type=text], input[type=file], select {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #d0d5dd;
@@ -156,12 +180,22 @@ def create_app(reports_dir):
       background: #fafafa;
       transition: border-color 0.2s;
       outline: none;
+      margin: 0;
+      font-family: inherit;
     }
-    input[type=text]:focus, select:focus {
+    input[type=text]:focus, input[type=file]:focus, select:focus {
       border-color: #003366;
       background: white;
     }
-    #generate-btn {
+    input[type=file] {
+      padding: 8px;
+    }
+    .file-help {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+    #generate-btn, #upload-btn {
       margin-top: 22px;
       width: 100%;
       padding: 12px;
@@ -174,8 +208,8 @@ def create_app(reports_dir):
       cursor: pointer;
       transition: background 0.2s;
     }
-    #generate-btn:hover:not(:disabled) { background: #00509e; }
-    #generate-btn:disabled { background: #99aabb; cursor: not-allowed; }
+    #generate-btn:hover:not(:disabled), #upload-btn:hover:not(:disabled) { background: #00509e; }
+    #generate-btn:disabled, #upload-btn:disabled { background: #99aabb; cursor: not-allowed; }
     #progress-section { margin-top: 24px; }
     .phase-block { margin-bottom: 18px; }
     .phase-header {
@@ -248,6 +282,8 @@ def create_app(reports_dir):
       border-radius: 6px;
     }
     #error-msg { font-size: 13px; color: #b91c1c; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
   </style>
 </head>
 <body>
@@ -256,19 +292,41 @@ def create_app(reports_dir):
     <p>Generate a professional PDF report measuring your team&#39;s AI maturity across 12 dimensions.</p>
   </header>
   <div class="container">
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('project')">Project Path</button>
+      <button class="tab-button" onclick="switchTab('logs')">Upload Logs</button>
+    </div>
+
     <div class="card">
-      <div id="form-section">
-        <label for="user-id">Team Name</label>
-        <input type="text" id="user-id" placeholder="e.g. platform_team">
-        <label for="project-path">Project Path</label>
-        <input type="text" id="project-path" placeholder="/path/to/your/project">
-        <label for="report-type">Report Type</label>
-        <select id="report-type">
-          <option value="team">Team Report (8&#8211;12 pages)</option>
-          <option value="individual">Individual Report (4&#8211;6 pages)</option>
-        </select>
-        <button id="generate-btn" onclick="startGeneration()">Generate Report</button>
+      <!-- Project Path Tab -->
+      <div id="project" class="tab-content active">
+        <div id="form-section">
+          <label for="user-id">Team Name</label>
+          <input type="text" id="user-id" placeholder="e.g. platform_team">
+          <label for="project-path">Project Path</label>
+          <input type="text" id="project-path" placeholder="/path/to/your/project">
+          <label for="report-type">Report Type</label>
+          <select id="report-type">
+            <option value="team">Team Report (8&#8211;12 pages)</option>
+            <option value="individual">Individual Report (4&#8211;6 pages)</option>
+          </select>
+          <button id="generate-btn" onclick="startGeneration()">Generate Report</button>
+        </div>
       </div>
+
+      <!-- Logs Upload Tab -->
+      <div id="logs" class="tab-content">
+        <div id="upload-form-section">
+          <label for="logs-user-id">Developer Name</label>
+          <input type="text" id="logs-user-id" placeholder="e.g. john.smith">
+          <label for="logs-zip">Claude Code Logs (ZIP)</label>
+          <input type="file" id="logs-zip" accept=".zip" required>
+          <p class="file-help">Upload a ZIP of your ~/.claude directory or a project&#39;s logs folder</p>
+          <button id="upload-btn" onclick="startLogsUpload()">Upload &amp; Generate Report</button>
+        </div>
+      </div>
+
+      <!-- Progress Section (shared) -->
       <div id="progress-section" style="display:none">
         <div class="phase-block">
           <div class="phase-header">
@@ -300,24 +358,36 @@ def create_app(reports_dir):
         </div>
         <div id="status-msg">Starting&#8230;</div>
       </div>
+
+      <!-- Download Section (shared) -->
       <div id="download-section" style="display:none">
         <p>Report generated successfully!</p>
         <a id="download-link" href="#" download>Download PDF Report</a>
       </div>
+
+      <!-- Error Section (shared) -->
       <div id="error-section" style="display:none">
         <p id="error-msg"></p>
       </div>
     </div>
   </div>
+
   <script>
-    async function startGeneration() {
-      const userId = document.getElementById('user-id').value.trim();
-      const projectPath = document.getElementById('project-path').value.trim();
-      const reportType = document.getElementById('report-type').value;
-      if (!userId) { alert('Please enter a Team Name.'); return; }
-      if (!projectPath) { alert('Please enter a Project Path.'); return; }
-      document.getElementById('generate-btn').disabled = true;
-      document.getElementById('progress-section').style.display = 'block';
+    function switchTab(tab) {
+      // Hide all tabs
+      document.getElementById('project').classList.remove('active');
+      document.getElementById('logs').classList.remove('active');
+      // Remove active class from all buttons
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+      // Show selected tab and mark button active
+      document.getElementById(tab).classList.add('active');
+      event.target.classList.add('active');
+      // Reset progress
+      resetProgress();
+    }
+
+    function resetProgress() {
+      document.getElementById('progress-section').style.display = 'none';
       document.getElementById('download-section').style.display = 'none';
       document.getElementById('error-section').style.display = 'none';
       for (let i = 1; i <= 4; i++) {
@@ -327,79 +397,133 @@ def create_app(reports_dir):
         document.getElementById('phase-pct-' + i).textContent = '0%';
       }
       document.getElementById('status-msg').textContent = 'Starting\u2026';
-      let activePhase = 0;
+    }
+
+    async function startGeneration() {
+      const userId = document.getElementById('user-id').value.trim();
+      const projectPath = document.getElementById('project-path').value.trim();
+      const reportType = document.getElementById('report-type').value;
+      if (!userId) { alert('Please enter a Team Name.'); return; }
+      if (!projectPath) { alert('Please enter a Project Path.'); return; }
+      document.getElementById('generate-btn').disabled = true;
+      resetProgress();
+      document.getElementById('progress-section').style.display = 'block';
+      await startSSEStream('/generate-report', {
+        user_id: userId,
+        project_path: projectPath,
+        report_type: reportType
+      });
+      document.getElementById('generate-btn').disabled = false;
+    }
+
+    async function startLogsUpload() {
+      const userId = document.getElementById('logs-user-id').value.trim();
+      const logsFile = document.getElementById('logs-zip').files[0];
+      if (!userId) { alert('Please enter a Developer Name.'); return; }
+      if (!logsFile) { alert('Please select a logs ZIP file.'); return; }
+      document.getElementById('upload-btn').disabled = true;
+      resetProgress();
+      document.getElementById('progress-section').style.display = 'block';
+
+      const formData = new FormData();
+      formData.append('user_id', userId);
+      formData.append('logs_zip', logsFile);
+
       try {
-        const resp = await fetch('/generate-report', {
+        const resp = await fetch('/upload-logs', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, project_path: projectPath, report_type: reportType }),
+          body: formData,
         });
         if (!resp.ok) {
           const errText = await resp.text();
           showError('Server error: ' + errText);
           return;
         }
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const parts = buffer.split('\n\n');
-          buffer = parts.pop();
-          for (const part of parts) {
-            const line = part.trim();
-            if (!line.startsWith('data:')) continue;
-            const jsonStr = line.slice(5).trim();
-            let msg;
-            try { msg = JSON.parse(jsonStr); } catch { continue; }
-            if (msg.error) { showError(msg.error); return; }
-            if (msg.done) {
-              for (let i = 1; i <= 4; i++) {
-                const bar = document.getElementById('bar-' + i);
-                bar.style.width = '100%';
-                bar.className = 'bar-fill done';
-                document.getElementById('phase-pct-' + i).textContent = '100%';
-              }
-              document.getElementById('status-msg').textContent = '';
-              document.getElementById('download-link').href = msg.download_url;
-              document.getElementById('download-section').style.display = 'block';
-              document.getElementById('generate-btn').disabled = false;
-              return;
-            }
-            if (msg.phase !== undefined) {
-              const phase = msg.phase;
-              const pct = Math.round((msg.pct || 0) * 100);
-              const bar = document.getElementById('bar-' + phase);
-              const pctEl = document.getElementById('phase-pct-' + phase);
-              if (msg.label) {
-                document.getElementById('phase-label-' + phase).textContent = 'Phase ' + phase + ': ' + msg.label;
-              }
-              if (phase > activePhase) {
-                if (activePhase > 0) {
-                  const prevBar = document.getElementById('bar-' + activePhase);
-                  prevBar.style.width = '100%';
-                  prevBar.className = 'bar-fill done';
-                  document.getElementById('phase-pct-' + activePhase).textContent = '100%';
-                }
-                activePhase = phase;
-                bar.className = 'bar-fill active';
-              }
-              bar.style.width = pct + '%';
-              pctEl.textContent = pct + '%';
-              document.getElementById('status-msg').textContent = 'Phase ' + phase + ': ' + (msg.label || '') + ' \u2014 ' + pct + '%';
-            }
-          }
+        await handleSSEStream(resp);
+      } catch (err) {
+        showError('Connection error: ' + err.message);
+      }
+      document.getElementById('upload-btn').disabled = false;
+    }
+
+    async function startSSEStream(endpoint, body) {
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          showError('Server error: ' + errText);
+          return;
         }
+        await handleSSEStream(resp);
       } catch (err) {
         showError('Connection error: ' + err.message);
       }
     }
+
+    async function handleSSEStream(resp) {
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let activePhase = 0;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          const jsonStr = line.slice(5).trim();
+          let msg;
+          try { msg = JSON.parse(jsonStr); } catch { continue; }
+          if (msg.error) { showError(msg.error); return; }
+          if (msg.done) {
+            for (let i = 1; i <= 4; i++) {
+              const bar = document.getElementById('bar-' + i);
+              bar.style.width = '100%';
+              bar.className = 'bar-fill done';
+              document.getElementById('phase-pct-' + i).textContent = '100%';
+            }
+            document.getElementById('status-msg').textContent = '';
+            document.getElementById('download-link').href = msg.download_url;
+            document.getElementById('download-section').style.display = 'block';
+            return;
+          }
+          if (msg.phase !== undefined) {
+            const phase = msg.phase;
+            const pct = Math.round((msg.pct || 0) * 100);
+            const bar = document.getElementById('bar-' + phase);
+            const pctEl = document.getElementById('phase-pct-' + phase);
+            if (msg.label) {
+              document.getElementById('phase-label-' + phase).textContent = 'Phase ' + phase + ': ' + msg.label;
+            }
+            if (phase > activePhase) {
+              if (activePhase > 0) {
+                const prevBar = document.getElementById('bar-' + activePhase);
+                prevBar.style.width = '100%';
+                prevBar.className = 'bar-fill done';
+                document.getElementById('phase-pct-' + activePhase).textContent = '100%';
+              }
+              activePhase = phase;
+              bar.className = 'bar-fill active';
+            }
+            bar.style.width = pct + '%';
+            pctEl.textContent = pct + '%';
+            document.getElementById('status-msg').textContent = 'Phase ' + phase + ': ' + (msg.label || '') + ' \u2014 ' + pct + '%';
+          }
+        }
+      }
+    }
+
     function showError(msg) {
       document.getElementById('error-msg').textContent = msg;
       document.getElementById('error-section').style.display = 'block';
-      document.getElementById('generate-btn').disabled = false;
     }
   </script>
 </body>
