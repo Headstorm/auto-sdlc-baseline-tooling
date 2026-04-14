@@ -613,6 +613,11 @@ def create_app(reports_dir):
 
         Returns SSE stream with progress updates.
         """
+        # Validate user_id
+        user_id = user_id.strip()
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id required")
+
         if not (logs_zip.filename or "").endswith(".zip"):
             raise HTTPException(status_code=400, detail="File must be a .zip archive")
 
