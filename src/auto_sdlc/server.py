@@ -19,6 +19,8 @@ except ImportError:
 
 from auto_sdlc.logs.team import build_team_report, render_team_html
 from auto_sdlc.reports.service import ReportService
+from auto_sdlc.server.extractors import extract_logs_zip, create_project_structure
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -602,6 +604,84 @@ def create_app(reports_dir):
             path=pdf_path,
             media_type="application/pdf",
             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+        )
+
+    @app.post("/upload-logs")
+    async def upload_logs(user_id: str = Form(...), logs_zip: UploadFile = File(...)):
+        """
+        Upload Claude Code logs ZIP and generate report.
+
+        Returns SSE stream with progress updates.
+        """
+        if not (logs_zip.filename or "").endswith(".zip"):
+            raise HTTPException(status_code=400, detail="File must be a .zip archive")
+
+        # Read ZIP bytes
+        zip_bytes = await logs_zip.read()
+
+        # Extract to temp directory
+        try:
+            temp_root, logs_dir = extract_logs_zip(zip_bytes)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"ZIP extraction error: {e}")
+            raise HTTPException(status_code=400, detail="Failed to extract logs")
+
+        # Create project structure
+        try:
+            project_path = create_project_structure(logs_dir, temp_root)
+        except Exception as e:
+            logger.error(f"Project structure error: {e}")
+            shutil.rmtree(temp_root, ignore_errors=True)
+            raise HTTPException(status_code=500, detail="Failed to prepare project")
+
+        # Generate report via SSE
+        loop = asyncio.get_event_loop()
+        aq = asyncio.Queue()
+
+        def callback(phase, label, pct):
+            loop.call_soon_threadsafe(aq.put_nowait, {"phase": phase, "label": label, "pct": pct})
+
+        def run_pipeline():
+            try:
+                service = ReportService()
+                _, pdf_path = service.generate_report(
+                    user_id=user_id,
+                    project_path=str(project_path),
+                    report_type="individual",  # Logs upload → individual reports
+                    output_dir=str(reports_path),
+                    progress_callback=callback,
+                )
+                loop.call_soon_threadsafe(
+                    aq.put_nowait,
+                    {"done": True, "download_url": f"/download-report/{pdf_path.name}"}
+                )
+            except Exception as e:
+                logger.exception(f"Report generation error: {e}")
+                loop.call_soon_threadsafe(aq.put_nowait, {"error": str(e)})
+            finally:
+                # Clean up temp directory
+                shutil.rmtree(temp_root, ignore_errors=True)
+
+        thread = threading.Thread(target=run_pipeline, daemon=True)
+        thread.start()
+
+        async def event_stream():
+            while True:
+                try:
+                    msg = await asyncio.wait_for(aq.get(), timeout=600)
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'error': 'Generation timed out'})}\n\n"
+                    break
+                yield f"data: {json.dumps(msg)}\n\n"
+                if "done" in msg or "error" in msg:
+                    break
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     # ========================================================================
