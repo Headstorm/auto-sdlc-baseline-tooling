@@ -1216,6 +1216,9 @@ auto-sdlc report ~/.claude/projects/myapp --output-dir ~/my-reports</code></pre>
     @app.post("/uploads/{upload_id}/generate")
     async def generate_from_upload(upload_id: int):
         """Generate a report from a previously uploaded log set."""
+        import tempfile
+        import shutil
+
         upload = _db.get_upload_by_id(upload_id)
         if not upload:
             raise HTTPException(status_code=404, detail="Upload not found")
@@ -1231,17 +1234,25 @@ auto-sdlc report ~/.claude/projects/myapp --output-dir ~/my-reports</code></pre>
         team_output_dir = reports_path / team_name
         team_output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Create temporary project structure for report generation
+        temp_root = Path(tempfile.mkdtemp(prefix="auto_sdlc_generate_"))
         try:
+            project_path = str(create_project_structure(Path(logs_path), temp_root))
+
             service = ReportService()
             report_obj, pdf_path = service.generate_report(
                 user_id=user_name,
-                project_path=logs_path,
+                project_path=project_path,
                 report_type="individual",
                 output_dir=str(team_output_dir),
             )
         except Exception as e:
             logger.exception(f"Report generation failed for upload {upload_id}: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+        finally:
+            # Clean up temporary directory
+            if temp_root.exists():
+                shutil.rmtree(str(temp_root), ignore_errors=True)
 
         # Record in DB
         maturity = getattr(report_obj, "overall_maturity_level", None)
