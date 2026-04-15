@@ -98,9 +98,9 @@ def create_app(reports_dir):
     reports_path = Path(reports_dir)
     reports_path.mkdir(parents=True, exist_ok=True)
 
-    # Initialize DB alongside reports directory
+    # Initialize DB at ~/.auto-sdlc/auto_sdlc.db (same as CLI)
     from auto_sdlc.db import Database as _Database
-    _db_path = str(reports_path.parent / "auto-sdlc.db")
+    _db_path = str(Path.home() / ".auto-sdlc" / "auto_sdlc.db")
     _db = _Database(_db_path)
     _db.init()
 
@@ -108,7 +108,11 @@ def create_app(reports_dir):
 
     @app.get("/health")
     def health():
-        return {"status": "ok", "reports_dir": str(reports_path)}
+        try:
+            uploads = _db.get_all_uploads()
+            return {"status": "ok", "reports_dir": str(reports_path), "db_uploads_count": len(uploads)}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
     @app.get("/api/uploads")
     def api_uploads():
