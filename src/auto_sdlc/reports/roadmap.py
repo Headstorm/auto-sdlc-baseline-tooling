@@ -1535,7 +1535,17 @@ class RoadmapGenerator:
 
         for dimension, current_level in dimensions_and_levels.items():
             if current_level >= 4:
-                # Already at max level
+                # Already at max level - create a placeholder roadmap
+                roadmap = RoadmapItem(
+                    dimension=dimension,
+                    current_level=4,
+                    target_level=4,
+                    actions=[],
+                    total_effort_hours=0,
+                    total_effort_weeks=0,
+                    key_insight="This dimension is at the highest maturity level (L4). Continue to maintain and refine practices.",
+                )
+                roadmaps.append(roadmap)
                 continue
 
             target_level = current_level + 1

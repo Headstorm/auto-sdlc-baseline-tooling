@@ -1209,4 +1209,48 @@ auto-sdlc report ~/.claude/projects/myapp --output-dir ~/my-reports</code></pre>
 </body>
 </html>"""
 
+    @app.post("/uploads/{upload_id}/generate")
+    async def generate_from_upload(upload_id: int):
+        """Generate a report from a previously uploaded log set."""
+        upload = _db.get_upload_by_id(upload_id)
+        if not upload:
+            raise HTTPException(status_code=404, detail="Upload not found")
+        if upload["status"] == "reported":
+            raise HTTPException(status_code=400, detail="Report already generated for this upload")
+
+        logs_path = upload["logs_path"]
+        if not Path(logs_path).exists():
+            raise HTTPException(status_code=400, detail=f"Logs directory not found: {logs_path}")
+
+        team_name = upload["team_name"]
+        user_name = upload["user_name"]
+        team_output_dir = reports_path / team_name
+        team_output_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            service = ReportService()
+            report_obj, pdf_path = service.generate_report(
+                user_id=user_name,
+                project_path=logs_path,
+                report_type="individual",
+                output_dir=str(team_output_dir),
+            )
+        except Exception as e:
+            logger.exception(f"Report generation failed for upload {upload_id}: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+        # Record in DB
+        maturity = getattr(report_obj, "overall_maturity_level", None)
+        _db.insert_report(
+            upload_id=upload_id,
+            team_name=team_name,
+            user_name=user_name,
+            report_type="individual",
+            pdf_path=str(pdf_path),
+            overall_maturity_level=maturity,
+        )
+
+        download_path = f"{team_name}/{pdf_path.name}"
+        return {"download_url": f"/download-report/{download_path}"}
+
     return app

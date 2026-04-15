@@ -90,3 +90,61 @@ def create_project_structure(logs_dir: Path, temp_root: Path) -> Path:
         shutil.copytree(logs_dir, logs_dest, dirs_exist_ok=True)
 
     return project_dir
+
+
+def merge_project_with_logs(project_path: str, zip_bytes: bytes, temp_root: Path) -> Path:
+    """
+    Copy project directory into temp_root, then overlay logs from ZIP.
+
+    Handles the case where user provides both a local project path and a logs ZIP.
+    Copies the project, extracts logs, and merges them into the project directory.
+
+    Args:
+        project_path: Path to the local project directory
+        zip_bytes: Raw bytes of the logs ZIP file
+        temp_root: Temporary directory to work in
+
+    Returns:
+        Path to the merged project directory
+
+    Raises:
+        ValueError: If project_path doesn't exist or no .jsonl files found in ZIP
+    """
+    project_input = Path(project_path).resolve()
+    if not project_input.exists():
+        raise ValueError(f"Project path does not exist: {project_path}")
+
+    # Copy project files into temp_root/project
+    merged_dir = temp_root / "project"
+    shutil.copytree(str(project_input), str(merged_dir), dirs_exist_ok=True)
+
+    # Extract logs ZIP to temp location
+    zip_path = temp_root / "logs.zip"
+    zip_path.write_bytes(zip_bytes)
+
+    logs_extracted = temp_root / "logs_extracted"
+    logs_extracted.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(logs_extracted)
+    finally:
+        zip_path.unlink()
+
+    # Find logs directory in extracted ZIP
+    logs_dir = _find_projects_dir(logs_extracted)
+
+    # Verify we found logs
+    jsonl_files = list(logs_dir.rglob("*.jsonl"))
+    if not jsonl_files:
+        raise ValueError("No .jsonl log files found in uploaded ZIP")
+
+    # Merge logs into project
+    logs_dest = merged_dir / "logs"
+    if logs_dir.exists():
+        shutil.copytree(str(logs_dir), str(logs_dest), dirs_exist_ok=True)
+
+    # Clean up extracted logs
+    shutil.rmtree(logs_extracted, ignore_errors=True)
+
+    return merged_dir

@@ -27,7 +27,7 @@ from reportlab.platypus import (
 from reportlab.pdfgen import canvas
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 
-from src.auto_sdlc.reports.models import TeamReport, IndividualReport, DimensionReport
+from auto_sdlc.reports.models import TeamReport, IndividualReport, DimensionReport
 
 
 # ============================================================================
