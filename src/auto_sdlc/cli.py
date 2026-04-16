@@ -48,20 +48,26 @@ def upload(logs_path: str, team_name: str, user_name: str):
         click.echo(f"Error: Logs path does not exist: {logs_path}", err=True)
         sys.exit(1)
 
-    # Prompt for team_name if not provided
+    # Strip whitespace from flag values provided on the command line
+    if team_name is not None:
+        team_name = team_name.strip()
+    if user_name is not None:
+        user_name = user_name.strip()
+
+    # Prompt for team_name if not provided or blank
     if not team_name:
         click.echo()
         team_name = click.prompt('Enter team name', type=str).strip()
-        if not team_name:
-            click.echo("Error: Team name cannot be empty", err=True)
-            sys.exit(1)
+    if not team_name:
+        click.echo("Error: Team name cannot be empty", err=True)
+        sys.exit(1)
 
-    # Prompt for user_name if not provided
+    # Prompt for user_name if not provided or blank
     if not user_name:
         user_name = click.prompt('Enter user name', type=str).strip()
-        if not user_name:
-            click.echo("Error: User name cannot be empty", err=True)
-            sys.exit(1)
+    if not user_name:
+        click.echo("Error: User name cannot be empty", err=True)
+        sys.exit(1)
 
     try:
         # Create destination directory with timestamp
@@ -180,18 +186,24 @@ def report(logs_path: str, team_name: str, user_name: str, report_type: str, out
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
+    # Strip whitespace from flag values provided on the command line
+    if team_name is not None:
+        team_name = team_name.strip()
+    if user_name is not None:
+        user_name = user_name.strip()
+
     click.echo()
     if not team_name:
         team_name = click.prompt('Enter team name', type=str).strip()
-        if not team_name:
-            click.echo("Error: Team name cannot be empty", err=True)
-            sys.exit(1)
+    if not team_name:
+        click.echo("Error: Team name cannot be empty", err=True)
+        sys.exit(1)
 
     if report_type == 'individual' and not user_name:
         user_name = click.prompt('Enter user name', type=str).strip()
-        if not user_name:
-            click.echo("Error: User name cannot be empty for individual reports", err=True)
-            sys.exit(1)
+    if report_type == 'individual' and not user_name:
+        click.echo("Error: User name cannot be empty for individual reports", err=True)
+        sys.exit(1)
 
     # For team reports, user_id is the team name (pipeline uses user_id as team_name)
     user_id = user_name if report_type == 'individual' else team_name
@@ -204,12 +216,11 @@ def report(logs_path: str, team_name: str, user_name: str, report_type: str, out
     try:
         if is_zip:
             import tempfile
-            temp_root = Path(tempfile.mkdtemp(prefix="auto_sdlc_logs_"))
             zip_bytes = logs_path_obj.read_bytes()
             try:
                 temp_path, logs_dir = extract_logs_zip(zip_bytes)
-                project_path = str(create_project_structure(logs_dir, temp_path))
                 temp_root = temp_path
+                project_path = str(create_project_structure(logs_dir, temp_path))
             except ValueError as e:
                 click.echo(f"Error: {e}", err=True)
                 sys.exit(1)
