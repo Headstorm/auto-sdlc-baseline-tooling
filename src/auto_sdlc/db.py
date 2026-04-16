@@ -119,3 +119,23 @@ class Database:
             (upload_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def get_all_reports(self) -> List[Dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM reports ORDER BY generated_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_reports_by_team(self, team_name: str) -> List[Dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM reports WHERE team_name = ? ORDER BY generated_at DESC",
+            (team_name,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_reports_by_user(self, user_name: str) -> List[Dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM reports WHERE user_name = ? ORDER BY generated_at DESC",
+            (user_name,),
+        ).fetchall()
+        return [dict(r) for r in rows]

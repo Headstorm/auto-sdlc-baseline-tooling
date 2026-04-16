@@ -18,6 +18,13 @@ def cli():
     pass
 
 
+def _get_db() -> Database:
+    """Get database connection, creating it if needed."""
+    db = Database(str(Path.home() / ".auto-sdlc" / "auto_sdlc.db"))
+    db.init()
+    return db
+
+
 @cli.command()
 @click.argument('logs_path', type=click.Path(exists=True))
 @click.option('--team-name', type=str, default=None, help='Team name (prompted if not provided)')
@@ -240,6 +247,73 @@ def report(logs_path: str, output_dir: str):
         if temp_root and temp_root.exists():
             import shutil
             shutil.rmtree(str(temp_root), ignore_errors=True)
+
+
+@cli.command(name="list-uploads")
+@click.option('--team-name', default=None, help='Filter by team name')
+@click.option('--user-name', default=None, help='Filter by user name')
+def list_uploads(team_name, user_name):
+    """List all uploaded log sets stored in the database."""
+    db = _get_db()
+    try:
+        if team_name:
+            uploads = db.get_uploads_by_team(team_name)
+        else:
+            uploads = db.get_all_uploads()
+
+        if user_name:
+            uploads = [u for u in uploads if u["user_name"] == user_name]
+
+        if not uploads:
+            click.echo("No uploads found.")
+            return
+
+        click.echo(f"\n{'ID':<6} {'Team':<20} {'User':<20} {'Sessions':<10} {'Tokens':<12} {'Status':<10} {'Uploaded'}")
+        click.echo("-" * 95)
+        for u in uploads:
+            click.echo(
+                f"{u['id']:<6} {u['team_name']:<20} {u['user_name']:<20} "
+                f"{u['session_count']:<10} {u['total_tokens']:<12,} {u['status']:<10} "
+                f"{u['uploaded_at'][:19].replace('T', ' ')}"
+            )
+        click.echo(f"\nTotal: {len(uploads)} upload(s)")
+    finally:
+        db.close()
+
+
+@cli.command(name="list-reports")
+@click.option('--team-name', default=None, help='Filter by team name')
+@click.option('--user-name', default=None, help='Filter by user name')
+def list_reports(team_name, user_name):
+    """List all generated reports stored in the database."""
+    db = _get_db()
+    try:
+        if team_name:
+            reports = db.get_reports_by_team(team_name)
+        elif user_name:
+            reports = db.get_reports_by_user(user_name)
+        else:
+            reports = db.get_all_reports()
+
+        if team_name and user_name:
+            reports = [r for r in reports if r["user_name"] == user_name]
+
+        if not reports:
+            click.echo("No reports found.")
+            return
+
+        click.echo(f"\n{'ID':<6} {'Team':<20} {'User':<20} {'Maturity':<10} {'Generated':<22} {'PDF'}")
+        click.echo("-" * 110)
+        for r in reports:
+            maturity = f"{r['overall_maturity_level']:.1f}" if r['overall_maturity_level'] else "N/A"
+            click.echo(
+                f"{r['id']:<6} {r['team_name']:<20} {r['user_name']:<20} "
+                f"{maturity:<10} {r['generated_at'][:19].replace('T', ' '):<22} "
+                f"{r['pdf_path']}"
+            )
+        click.echo(f"\nTotal: {len(reports)} report(s)")
+    finally:
+        db.close()
 
 
 if __name__ == '__main__':
