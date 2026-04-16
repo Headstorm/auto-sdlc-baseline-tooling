@@ -132,69 +132,77 @@ def upload(logs_path: str, team_name: str, user_name: str):
 
 @cli.command()
 @click.argument('logs_path', type=click.Path(exists=True))
+@click.option('--team-name', default=None, help='Team name (prompted if not provided)')
+@click.option('--user-name', default=None, help='User name — required for individual reports (prompted if not provided)')
+@click.option(
+    '--report-type',
+    type=click.Choice(['individual', 'team']),
+    default='individual',
+    show_default=True,
+    help='individual: 4-6 page developer profile. team: 8-12 page leadership view.',
+)
 @click.option(
     '--output-dir',
     type=click.Path(),
     default=None,
-    help='Output directory for reports (default: ~/.auto-sdlc/server/reports)'
+    help='Output directory for reports (default: ~/.auto-sdlc/server/reports)',
 )
-def report(logs_path: str, output_dir: str):
+def report(logs_path: str, team_name: str, user_name: str, report_type: str, output_dir: str):
     """
     Generate an AI maturity assessment report from Claude Code logs.
 
     LOGS_PATH: Path to logs directory (containing .jsonl files) or logs.zip file
 
-    Example:
+    Examples:
+
         auto-sdlc report ~/.claude/projects/myapp
-        auto-sdlc report ~/logs.zip
+
+        auto-sdlc report ~/.claude/projects/myapp --team-name myteam --user-name alice
+
+        auto-sdlc report ~/logs.zip --report-type team --team-name platform_team
     """
     logs_path_obj = Path(logs_path).resolve()
 
-    # Validate logs path
     if not logs_path_obj.exists():
         click.echo(f"Error: Logs path does not exist: {logs_path}", err=True)
         sys.exit(1)
 
-    # Determine if it's a directory or ZIP file
     is_zip = logs_path_obj.is_file() and logs_path_obj.suffix == '.zip'
     is_dir = logs_path_obj.is_dir()
 
     if not (is_zip or is_dir):
-        click.echo(
-            f"Error: Logs path must be a directory or .zip file: {logs_path}",
-            err=True
-        )
+        click.echo(f"Error: Logs path must be a directory or .zip file: {logs_path}", err=True)
         sys.exit(1)
 
-    # Set default output directory
     if not output_dir:
         output_dir = str(Path.home() / ".auto-sdlc" / "server" / "reports")
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Get team and user names interactively
     click.echo()
-    team_name = click.prompt('Enter team name', type=str).strip()
     if not team_name:
-        click.echo("Error: Team name cannot be empty", err=True)
-        sys.exit(1)
+        team_name = click.prompt('Enter team name', type=str).strip()
+        if not team_name:
+            click.echo("Error: Team name cannot be empty", err=True)
+            sys.exit(1)
 
-    user_name = click.prompt('Enter user name', type=str).strip()
-    if not user_name:
-        click.echo("Error: User name cannot be empty", err=True)
-        sys.exit(1)
+    if report_type == 'individual' and not user_name:
+        user_name = click.prompt('Enter user name', type=str).strip()
+        if not user_name:
+            click.echo("Error: User name cannot be empty for individual reports", err=True)
+            sys.exit(1)
 
-    click.echo()
-    click.echo("Generating report...")
+    # For team reports, user_id is the team name (pipeline uses user_id as team_name)
+    user_id = user_name if report_type == 'individual' else team_name
 
-    # Prepare project path based on input type
+    click.echo(f"Generating {report_type} report...")
+
     project_path = None
     temp_root = None
 
     try:
         if is_zip:
-            # Extract ZIP and create project structure
             import tempfile
             temp_root = Path(tempfile.mkdtemp(prefix="auto_sdlc_logs_"))
             zip_bytes = logs_path_obj.read_bytes()
@@ -206,36 +214,32 @@ def report(logs_path: str, output_dir: str):
                 click.echo(f"Error: {e}", err=True)
                 sys.exit(1)
         else:
-            # Directory: create project structure
             import tempfile
             temp_root = Path(tempfile.mkdtemp(prefix="auto_sdlc_logs_"))
             project_path = str(create_project_structure(logs_path_obj, temp_root))
 
-        # Create team-scoped output directory
         team_output_dir = output_path / team_name
         team_output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Generate report with progress
-        with click.progressbar(
-            length=4,
-            label='Generating',
-            show_pos=True,
-        ) as bar:
+        with click.progressbar(length=4, label='Generating', show_pos=True) as bar:
             def progress_callback(phase, label, pct):
                 bar.update(1)
 
             service = ReportService()
             report_obj, pdf_path = service.generate_report(
-                user_id=user_name,
+                user_id=user_id,
                 project_path=project_path,
-                report_type="individual",
+                report_type=report_type,
                 output_dir=str(team_output_dir),
                 progress_callback=progress_callback,
             )
 
-        # Success message
         click.echo()
         click.secho('✓ Report generated successfully!', fg='green', bold=True)
+        click.echo(f"Type:     {report_type}")
+        click.echo(f"Team:     {team_name}")
+        if report_type == 'individual':
+            click.echo(f"User:     {user_name}")
         click.echo(f"Location: {pdf_path}")
         click.echo()
 
@@ -243,7 +247,6 @@ def report(logs_path: str, output_dir: str):
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
     finally:
-        # Clean up temp directory
         if temp_root and temp_root.exists():
             import shutil
             shutil.rmtree(str(temp_root), ignore_errors=True)
