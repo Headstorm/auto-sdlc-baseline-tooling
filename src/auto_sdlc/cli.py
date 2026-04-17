@@ -238,6 +238,35 @@ def report(team_name: str, user_name: str, report_type: str, output_dir: str):
                 progress_callback=progress_callback,
             )
 
+        # Record report in database
+        db_insert = _get_db()
+        try:
+            # Extract maturity level if available
+            maturity_level = None
+            try:
+                if isinstance(report_obj, dict):
+                    maturity_level = report_obj.get('overall_maturity_level')
+                elif hasattr(report_obj, 'overall_maturity_level'):
+                    maturity_level = report_obj.overall_maturity_level
+                # Convert to float if it's not None
+                if maturity_level is not None:
+                    maturity_level = float(maturity_level)
+            except (TypeError, ValueError, AttributeError):
+                maturity_level = None
+
+            db_insert.insert_report(
+                upload_id=latest_upload['id'],
+                team_name=team_name,
+                user_name=user_name if report_type == 'individual' else team_name,
+                report_type=report_type,
+                pdf_path=str(pdf_path),
+                overall_maturity_level=maturity_level,
+            )
+        except Exception as db_err:
+            click.echo(f"Warning: Report generated but not recorded in database: {db_err}", err=True)
+        finally:
+            db_insert.close()
+
         click.echo()
         click.secho('✓ Report generated successfully!', fg='green', bold=True)
         click.echo(f"Type:     {report_type}")
