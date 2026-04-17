@@ -35,74 +35,117 @@ All commands use the CLI. There is no web dashboard; use `list-*` commands to in
 | Command | Purpose |
 |---------|---------|
 | `auto-sdlc upload <logs>` | Copy logs to persistent storage and record metadata in SQLite |
-| `auto-sdlc report <logs>` | Generate a PDF report from logs (direct mode) |
+| `auto-sdlc report` | Generate a PDF report from the latest upload for a team/user |
 | `auto-sdlc list-uploads` | List all stored uploads |
 | `auto-sdlc list-reports` | List all generated reports |
+| `auto-sdlc open-report` | Open a PDF report in your system viewer |
 
-### Workflow 1: Upload and Generate Immediately
-
-```bash
-# Upload logs and generate a report in one step
-auto-sdlc report ~/.claude/projects/myapp
-
-# Prompted for: team name, user name
-# Output: PDF report saved to ~/.auto-sdlc/server/reports/{team}/{user}_report_*.pdf
-```
-
-### Workflow 2: Upload Now, Generate Later
-
-Store logs first, then inspect and generate reports on your schedule:
+### Workflow 1: Upload and Generate Individual Report
 
 ```bash
-# Step 1: Upload logs to persistent storage
-auto-sdlc upload ~/.claude/projects/myapp --team-name Headstorm --user-name alice
+# Step 1: Upload logs
+auto-sdlc upload ~/.claude/projects/myapp --team-name Headstorm --user-name Alice
 
 # Output:
 # ✓ Upload recorded successfully!
 # Upload ID: 1
 # Sessions found: 5
 # Total tokens: 12,500
-# Location: ~/.auto-sdlc/logs/Headstorm/alice_20260415_182225
+# Location: ~/.auto-sdlc/logs/Headstorm/Alice_20260417_143022
 
-# Step 2: List all uploads
-auto-sdlc list-uploads
+# Step 2: Generate individual report (uses the latest upload)
+auto-sdlc report --team-name Headstorm --user-name Alice
 
 # Output:
-# ID  Team      User   Sessions  Tokens    Status   Uploaded
-# 1   Headstorm alice  5         12500     pending  2026-04-15 18:22:25
+# Using upload from: ~/.auto-sdlc/logs/Headstorm/Alice_20260417_143022
+# Generating individual report...
+# ✓ Report generated successfully!
+# Type:     individual
+# Team:     Headstorm
+# User:     Alice
+# Location: ~/.auto-sdlc/server/reports/Headstorm/Alice_report_20260417_143022.pdf
+# To open:  open "~/.auto-sdlc/server/reports/Headstorm/Alice_report_20260417_143022.pdf"
 
-# Step 3: Generate report from upload
-auto-sdlc report ~/.auto-sdlc/logs/Headstorm/alice_20260415_182225
-
-# Or filter uploads to find what you need
-auto-sdlc list-uploads --team-name Headstorm
-auto-sdlc list-uploads --user-name alice
+# Step 3: Open the report
+auto-sdlc open-report --team-name Headstorm --user-name Alice
 ```
 
-### List Uploaded Logs
+### Workflow 2: Generate Team-Level Report
 
 ```bash
-# All uploads
+# Upload logs (will use latest for entire team)
+auto-sdlc upload ~/.claude/projects/myapp --team-name Headstorm --user-name Alice
+
+# Generate team-wide report (no user name needed)
+auto-sdlc report --team-name Headstorm --report-type team
+
+# Output:
+# Using upload from: ~/.auto-sdlc/logs/Headstorm/Alice_20260417_143022
+# Generating team report...
+# ✓ Report generated successfully!
+# Type:     team
+# Team:     Headstorm
+# Location: ~/.auto-sdlc/server/reports/Headstorm/team_report_20260417_143022.pdf
+
+# Open the team report
+auto-sdlc open-report --team-name Headstorm --report-type team
+```
+
+### Workflow 3: Inspect Uploads and Reports
+
+```bash
+# List all uploads
 auto-sdlc list-uploads
 
 # Filter by team
 auto-sdlc list-uploads --team-name Headstorm
 
 # Filter by user
-auto-sdlc list-uploads --user-name alice
-```
+auto-sdlc list-uploads --user-name Alice
 
-### List Generated Reports
-
-```bash
-# All reports
+# List all reports
 auto-sdlc list-reports
 
 # Filter by team
 auto-sdlc list-reports --team-name Headstorm
 
 # Filter by user
-auto-sdlc list-reports --user-name alice
+auto-sdlc list-reports --user-name Alice
+```
+
+### Workflow 4: Access Reports
+
+```bash
+# Open most recent report for a user
+auto-sdlc open-report --team-name Headstorm --user-name Alice
+
+# Open most recent report for a team
+auto-sdlc open-report --team-name Headstorm
+
+# Open a specific report by ID (from list-reports)
+auto-sdlc open-report --id 1
+
+# Open report by user name only
+auto-sdlc open-report --user-name Alice
+
+# Or open manually from the terminal
+open "~/.auto-sdlc/server/reports/Headstorm/Alice_report_20260417_143510.pdf"
+```
+
+### Interactive Mode
+
+All optional flags can be omitted—you'll be prompted interactively:
+
+```bash
+# Report without flags — prompts for team and user
+auto-sdlc report
+
+# Upload without flags — prompts for team and user
+auto-sdlc upload ~/logs.zip
+
+# List commands can also be run without filters
+auto-sdlc list-uploads
+auto-sdlc list-reports
 ```
 
 ## Storage

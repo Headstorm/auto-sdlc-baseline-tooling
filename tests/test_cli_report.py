@@ -16,10 +16,12 @@ def test_report_command_help_shows_new_options():
     assert "--team-name" in result.stdout
     assert "--user-name" in result.stdout
     assert "--report-type" in result.stdout
+    # Confirm no LOGS_PATH positional argument
+    assert "LOGS_PATH" not in result.stdout
 
 
 def test_report_command_accepts_team_name_flag(tmp_path):
-    """Individual report with --team-name and --user-name exits 0 when ReportService succeeds."""
+    """Individual report with --team-name and --user-name exits 0 when upload exists."""
     logs_dir = tmp_path / "logs"
     logs_dir.mkdir()
     (logs_dir / "session.jsonl").write_text(
@@ -31,14 +33,23 @@ def test_report_command_accepts_team_name_flag(tmp_path):
     fake_pdf = tmp_path / "reports" / "testteam" / "report.pdf"
 
     runner = CliRunner()
-    with patch("auto_sdlc.cli.ReportService") as MockService:
+    with patch("auto_sdlc.cli._get_db") as mock_get_db, \
+         patch("auto_sdlc.cli.ReportService") as MockService:
+
+        # Mock DB to return an upload record
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
+        mock_db.get_uploads_by_team.return_value = [
+            {"id": 1, "team_name": "testteam", "user_name": "testuser", "logs_path": str(logs_dir)}
+        ]
+
+        # Mock ReportService
         instance = MockService.return_value
         instance.generate_report.return_value = (fake_report, fake_pdf)
 
         result = runner.invoke(
             report,
             [
-                str(logs_dir),
                 "--team-name", "testteam",
                 "--user-name", "testuser",
                 "--report-type", "individual",
@@ -51,7 +62,7 @@ def test_report_command_accepts_team_name_flag(tmp_path):
 
 
 def test_report_command_accepts_team_type(tmp_path):
-    """Team report with --team-name exits 0 when ReportService succeeds."""
+    """Team report with --team-name exits 0 when upload exists."""
     logs_dir = tmp_path / "logs"
     logs_dir.mkdir()
     (logs_dir / "session.jsonl").write_text(
@@ -63,14 +74,23 @@ def test_report_command_accepts_team_type(tmp_path):
     fake_pdf = tmp_path / "reports" / "testteam" / "report.pdf"
 
     runner = CliRunner()
-    with patch("auto_sdlc.cli.ReportService") as MockService:
+    with patch("auto_sdlc.cli._get_db") as mock_get_db, \
+         patch("auto_sdlc.cli.ReportService") as MockService:
+
+        # Mock DB to return an upload record
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
+        mock_db.get_uploads_by_team.return_value = [
+            {"id": 1, "team_name": "testteam", "user_name": "someuser", "logs_path": str(logs_dir)}
+        ]
+
+        # Mock ReportService
         instance = MockService.return_value
         instance.generate_report.return_value = (fake_report, fake_pdf)
 
         result = runner.invoke(
             report,
             [
-                str(logs_dir),
                 "--team-name", "testteam",
                 "--report-type", "team",
                 "--output-dir", str(tmp_path / "reports"),
@@ -81,11 +101,30 @@ def test_report_command_accepts_team_type(tmp_path):
     instance.generate_report.assert_called_once()
 
 
-def test_report_rejects_invalid_report_type(tmp_path):
+def test_report_fails_gracefully_when_no_uploads():
+    """When no uploads exist for the team/user, report should exit with error."""
+    runner = CliRunner()
+    with patch("auto_sdlc.cli._get_db") as mock_get_db:
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
+        mock_db.get_uploads_by_team.return_value = []
+
+        result = runner.invoke(
+            report,
+            [
+                "--team-name", "testteam",
+                "--user-name", "testuser",
+            ],
+        )
+
+    assert result.exit_code != 0
+    assert "No uploads found" in result.output
+
+
+def test_report_rejects_invalid_report_type():
     result = subprocess.run(
         [
             sys.executable, "-m", "auto_sdlc.cli", "report",
-            str(tmp_path),
             "--team-name", "t",
             "--report-type", "invalid",
         ],

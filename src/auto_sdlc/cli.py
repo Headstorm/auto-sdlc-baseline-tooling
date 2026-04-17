@@ -137,7 +137,6 @@ def upload(logs_path: str, team_name: str, user_name: str):
 
 
 @cli.command()
-@click.argument('logs_path', type=click.Path(exists=True))
 @click.option('--team-name', default=None, help='Team name (prompted if not provided)')
 @click.option('--user-name', default=None, help='User name — required for individual reports (prompted if not provided)')
 @click.option(
@@ -153,39 +152,19 @@ def upload(logs_path: str, team_name: str, user_name: str):
     default=None,
     help='Output directory for reports (default: ~/.auto-sdlc/server/reports)',
 )
-def report(logs_path: str, team_name: str, user_name: str, report_type: str, output_dir: str):
+def report(team_name: str, user_name: str, report_type: str, output_dir: str):
     """
-    Generate an AI maturity assessment report from Claude Code logs.
+    Generate an AI maturity report from the latest uploaded logs for a team/user.
 
-    LOGS_PATH: Path to logs directory (containing .jsonl files) or logs.zip file
+    Looks up the most recent upload in the database and generates a PDF report.
+    Upload logs first with: auto-sdlc upload <logs_path>
 
     Examples:
 
-        auto-sdlc report ~/.claude/projects/myapp
+        auto-sdlc report --team-name Headstorm --user-name Alice
 
-        auto-sdlc report ~/.claude/projects/myapp --team-name myteam --user-name alice
-
-        auto-sdlc report ~/logs.zip --report-type team --team-name platform_team
+        auto-sdlc report --team-name Headstorm --report-type team
     """
-    logs_path_obj = Path(logs_path).resolve()
-
-    if not logs_path_obj.exists():
-        click.echo(f"Error: Logs path does not exist: {logs_path}", err=True)
-        sys.exit(1)
-
-    is_zip = logs_path_obj.is_file() and logs_path_obj.suffix == '.zip'
-    is_dir = logs_path_obj.is_dir()
-
-    if not (is_zip or is_dir):
-        click.echo(f"Error: Logs path must be a directory or .zip file: {logs_path}", err=True)
-        sys.exit(1)
-
-    if not output_dir:
-        output_dir = str(Path.home() / ".auto-sdlc" / "server" / "reports")
-
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
     # Strip whitespace from flag values provided on the command line
     if team_name is not None:
         team_name = team_name.strip()
@@ -205,29 +184,43 @@ def report(logs_path: str, team_name: str, user_name: str, report_type: str, out
         click.echo("Error: User name cannot be empty for individual reports", err=True)
         sys.exit(1)
 
-    # For team reports, user_id is the team name (pipeline uses user_id as team_name)
+    # Look up latest upload from DB
+    db = _get_db()
+    try:
+        uploads = db.get_uploads_by_team(team_name)
+        if report_type == 'individual':
+            uploads = [u for u in uploads if u['user_name'] == user_name]
+        if not uploads:
+            label = f"team '{team_name}'" if report_type == 'team' else f"user '{user_name}' in team '{team_name}'"
+            click.echo(f"Error: No uploads found for {label}. Run 'auto-sdlc upload' first.", err=True)
+            sys.exit(1)
+        latest_upload = uploads[0]  # ordered by uploaded_at DESC
+        logs_path_str = latest_upload['logs_path']
+    finally:
+        db.close()
+
+    logs_path_obj = Path(logs_path_str)
+    if not logs_path_obj.exists():
+        click.echo(f"Error: Stored logs path no longer exists: {logs_path_str}", err=True)
+        sys.exit(1)
+
+    if not output_dir:
+        output_dir = str(Path.home() / ".auto-sdlc" / "server" / "reports")
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # For team reports, user_id is the team name
     user_id = user_name if report_type == 'individual' else team_name
 
+    click.echo(f"Using upload from: {logs_path_str}")
     click.echo(f"Generating {report_type} report...")
 
-    project_path = None
     temp_root = None
-
     try:
-        if is_zip:
-            import tempfile
-            zip_bytes = logs_path_obj.read_bytes()
-            try:
-                temp_path, logs_dir = extract_logs_zip(zip_bytes)
-                temp_root = temp_path
-                project_path = str(create_project_structure(logs_dir, temp_path))
-            except ValueError as e:
-                click.echo(f"Error: {e}", err=True)
-                sys.exit(1)
-        else:
-            import tempfile
-            temp_root = Path(tempfile.mkdtemp(prefix="auto_sdlc_logs_"))
-            project_path = str(create_project_structure(logs_path_obj, temp_root))
+        import tempfile
+        temp_root = Path(tempfile.mkdtemp(prefix="auto_sdlc_logs_"))
+        project_path = str(create_project_structure(logs_path_obj, temp_root))
 
         team_output_dir = output_path / team_name
         team_output_dir.mkdir(parents=True, exist_ok=True)
@@ -252,6 +245,8 @@ def report(logs_path: str, team_name: str, user_name: str, report_type: str, out
         if report_type == 'individual':
             click.echo(f"User:     {user_name}")
         click.echo(f"Location: {pdf_path}")
+        click.echo()
+        click.echo(f"To open:  open \"{pdf_path}\"")
         click.echo()
 
     except Exception as e:
@@ -328,6 +323,56 @@ def list_reports(team_name, user_name):
         click.echo(f"\nTotal: {len(reports)} report(s)")
     finally:
         db.close()
+
+
+@cli.command(name="open-report")
+@click.option('--team-name', default=None, help='Filter by team name')
+@click.option('--user-name', default=None, help='Filter by user name')
+@click.option('--id', 'report_id', default=None, type=int, help='Open a specific report by ID (from list-reports)')
+def open_report(team_name, user_name, report_id):
+    """Open the most recent PDF report in the system viewer.
+
+    Examples:
+
+        auto-sdlc open-report --team-name Headstorm --user-name Alice
+
+        auto-sdlc open-report --id 3
+    """
+    import subprocess
+    import platform
+
+    db = _get_db()
+    try:
+        if report_id:
+            rows = db.get_all_reports()
+            reports = [r for r in rows if r['id'] == report_id]
+        elif team_name and user_name:
+            reports = [r for r in db.get_reports_by_team(team_name) if r['user_name'] == user_name]
+        elif team_name:
+            reports = db.get_reports_by_team(team_name)
+        elif user_name:
+            reports = db.get_reports_by_user(user_name)
+        else:
+            reports = db.get_all_reports()
+    finally:
+        db.close()
+
+    if not reports:
+        click.echo("No reports found. Run 'auto-sdlc list-reports' to see all reports.")
+        sys.exit(1)
+
+    pdf_path = reports[0]['pdf_path']  # most recent
+    if not Path(pdf_path).exists():
+        click.echo(f"Error: PDF not found at {pdf_path}", err=True)
+        sys.exit(1)
+
+    click.echo(f"Opening: {pdf_path}")
+    if platform.system() == 'Darwin':
+        subprocess.run(['open', pdf_path])
+    elif platform.system() == 'Linux':
+        subprocess.run(['xdg-open', pdf_path])
+    else:
+        click.echo(f"Cannot auto-open on this platform. Path: {pdf_path}")
 
 
 if __name__ == '__main__':
