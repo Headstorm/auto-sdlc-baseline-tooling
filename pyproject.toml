@@ -10,6 +10,7 @@ requires-python = ">=3.9"
 dependencies = [
     "click>=8.0",
     "markdown>=3.4",
+    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]

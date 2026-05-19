@@ -246,3 +246,59 @@ def test_report_passes_metrics_to_generator(tmp_path):
     assert len(md_files) == 1
     content = md_files[0].read_text()
     assert "## Usage Analytics" in content
+
+
+def test_export_excel_creates_file(tmp_path):
+    db = tmp_path / "test.db"
+    session_dir = tmp_path / "sessions"
+    session_dir.mkdir()
+    (session_dir / "abc123.jsonl").write_text(json.dumps(SAMPLE_SESSION_RECORD) + "\n")
+    runner = CliRunner()
+    runner.invoke(cli, [
+        "submit", str(session_dir),
+        "--name", "alice", "--email", "alice@co.com", "--team", "eng",
+        "--db", str(db),
+    ])
+    with patch("ai_maturity.grader.call_claude_judge", return_value=FAKE_JUDGE):
+        runner.invoke(cli, ["assess", "--email", "alice@co.com", "--db", str(db)])
+    report_dir = tmp_path / "reports"
+    result = runner.invoke(cli, [
+        "export-excel", "--email", "alice@co.com",
+        "--db", str(db), "--output-dir", str(report_dir),
+    ])
+    assert result.exit_code == 0, result.output
+    xlsx_files = list(report_dir.glob("*.xlsx"))
+    assert len(xlsx_files) == 1
+    assert xlsx_files[0].name == "alice_report.xlsx"
+    assert "Exporting Excel for alice (eng)" in result.output
+    assert "  Excel:" in result.output
+
+
+def test_export_excel_requires_scores(tmp_path):
+    db = tmp_path / "test.db"
+    session_dir = tmp_path / "sessions"
+    session_dir.mkdir()
+    (session_dir / "abc123.jsonl").write_text(json.dumps(SAMPLE_SESSION_RECORD) + "\n")
+    runner = CliRunner()
+    runner.invoke(cli, [
+        "submit", str(session_dir),
+        "--name", "alice", "--email", "alice@co.com", "--team", "eng",
+        "--db", str(db),
+    ])
+    result = runner.invoke(cli, [
+        "export-excel", "--email", "alice@co.com",
+        "--db", str(db), "--output-dir", str(tmp_path),
+    ])
+    assert result.exit_code == 0
+    assert "assess" in result.output.lower()
+
+
+def test_export_excel_unknown_developer(tmp_path):
+    db = tmp_path / "test.db"
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "export-excel", "--email", "nobody@co.com",
+        "--db", str(db), "--output-dir", str(tmp_path),
+    ])
+    assert result.exit_code == 0
+    assert "not found" in result.output.lower()

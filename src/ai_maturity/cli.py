@@ -215,6 +215,50 @@ def report(email, output_format, model, output_dir, db):
         click.echo(f"  HTML: {html_path}")
 
 
+@cli.command(name="export-excel")
+@click.option("--email", required=True, help="Developer email")
+@click.option("--output-dir", default=None, help="Output directory (default: reports dir)")
+@click.option("--db", default=None, hidden=True)
+def export_excel_cmd(email, output_dir, db):
+    """Export assessment data to Excel for auditing and data analysis.
+
+    Produces a .xlsx workbook with a Summary tab and one tab per
+    sub-dimension, each showing the grade block and all evidence records.
+    Requires 'assess' to have been run first.
+
+    Example:
+        ai-maturity export-excel --email alice@company.com
+    """
+    from ai_maturity.excel_exporter import export_excel
+
+    store = _get_store(db)
+
+    dev = store.get_developer(email)
+    if dev is None:
+        click.echo(f"Developer '{email}' not found. Run 'submit' first.")
+        return
+
+    scores = store.get_scores(email)
+    if not scores:
+        click.echo(f"No scores for '{email}'. Run 'assess' first.")
+        return
+
+    records = store.get_records(email)
+    out_dir = Path(output_dir) if output_dir else store.reports_dir()
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    stem = email.split("@")[0]
+    out_path = out_dir / f"{stem}_report.xlsx"
+
+    click.echo(f"Exporting Excel for {dev['name']} ({dev['team']}) — {len(records)} records...")
+    try:
+        export_excel(records, scores, dev, out_path)
+    except ValueError as e:
+        click.echo(f"Export failed: {e}")
+        return
+    click.echo(f"  Excel: {out_path}")
+
+
 @cli.command(name="import")
 @click.argument("import_path", type=click.Path(exists=True))
 @click.option("--db", default=None, hidden=True)
