@@ -1,190 +1,316 @@
 """Convert Markdown assessment reports to polished self-contained HTML."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import markdown
 
+# Google Fonts loaded via <link> in <head> (not @import inside <style>)
+# so it works correctly in self-contained HTML and browser-print-to-PDF.
+_GOOGLE_FONTS_LINK = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800'
+    "&family=Inter:wght@300;400;500;600;700&display=swap\" rel=\"stylesheet\">"
+)
+
 _CSS = """
 :root {
-    --bg: #fafafa;
-    --card: #ffffff;
-    --text: #1a1a2e;
-    --text-secondary: #555;
-    --accent: #4361ee;
-    --accent-light: #e8edff;
-    --border: #e0e0e0;
+    /* Headstorm brand */
+    --hs-primary:       #e75b27;
+    --hs-primary-dark:  #c94a1e;
+    --hs-primary-soft:  #fdece3;
+    --hs-secondary:     #1a2b4c;
+    --hs-accent:        #00b2e3;
+
+    --hs-bg:            #ffffff;
+    --hs-bg-surface:    #f7f5f2;
+    --hs-bg-cream:      #fbf8f4;
+
+    --hs-text:          #1a2b4c;
+    --hs-text-secondary:#4b5563;
+    --hs-text-muted:    #8a93a3;
+    --hs-text-inverse:  #ffffff;
+
+    --hs-border:        #e6e2dc;
+
+    --hs-font-heading:  'Montserrat', sans-serif;
+    --hs-font-body:     'Inter', sans-serif;
+
+    /* Maturity level colours */
     --l1: #ef4444;
     --l2: #f59e0b;
     --l3: #3b82f6;
     --l4: #10b981;
-    --l1-bg: #fef2f2;
-    --l2-bg: #fffbeb;
-    --l3-bg: #eff6ff;
-    --l4-bg: #ecfdf5;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+html { background: var(--hs-bg); }
+
 body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    line-height: 1.7;
-    max-width: 900px;
+    font-family: var(--hs-font-body);
+    font-size: 11.5pt;
+    line-height: 1.6;
+    color: var(--hs-text);
+    background: var(--hs-bg);
+    max-width: 7.2in;
     margin: 0 auto;
-    padding: 40px 32px 80px;
+    padding: 0.5in 0.5in 0.75in;
+    position: relative;
+}
+
+/* Orange left-edge brand bar */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 8px;
+    height: 100%;
+    background: var(--hs-primary);
+    z-index: 1000;
+}
+
+/* ── Typography ─────────────────────────────────────────── */
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--hs-font-heading);
+    color: var(--hs-secondary);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
 }
 
 h1 {
-    font-size: 2em;
+    font-size: 1.9rem;
     font-weight: 700;
-    color: var(--text);
-    margin-bottom: 4px;
-    border-bottom: 3px solid var(--accent);
-    padding-bottom: 12px;
+    margin: 0 0 0.6em 0;
+    padding-bottom: 0.2em;
 }
 
-h1 + p { color: var(--text-secondary); margin-bottom: 24px; }
+h1::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 4px;
+    background: var(--hs-primary);
+    border-radius: 2px;
+    margin-top: 0.4em;
+}
+
+/* Sub-line under the h1 (team / date) */
+h1 + p {
+    color: var(--hs-text-secondary);
+    font-size: 0.95em;
+    margin-bottom: 1.6em;
+}
 
 h2 {
-    font-size: 1.4em;
+    font-size: 1.35rem;
     font-weight: 600;
-    color: var(--accent);
-    margin-top: 40px;
-    margin-bottom: 16px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
+    color: var(--hs-secondary);
+    margin: 1.6em 0 0.5em;
+    padding-bottom: 0.25em;
+    border-bottom: 2px solid var(--hs-primary);
 }
 
 h3 {
-    font-size: 1.1em;
-    font-weight: 600;
-    color: var(--text);
-    margin-top: 24px;
-    margin-bottom: 8px;
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: var(--hs-primary);
+    margin: 1.3em 0 0.3em;
 }
 
-p { margin-bottom: 16px; }
-
-strong { color: var(--text); }
-
-hr {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 32px 0;
+h4 {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--hs-secondary);
+    margin: 1em 0 0.2em;
 }
 
-/* Score matrix table */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 20px 0;
-    font-size: 0.92em;
-    background: var(--card);
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+p { margin: 0.5em 0 0.8em; }
+
+strong {
+    color: var(--hs-primary);
+    font-weight: 700;
 }
 
-thead th, table th {
-    background: var(--accent);
-    color: white;
-    padding: 12px 16px;
-    text-align: left;
-    font-weight: 600;
-}
-
-td {
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--border);
-}
-
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--accent-light); }
-
-/* Dimension header rows in the score matrix */
-td strong {
-    color: var(--accent);
-    font-size: 1.05em;
-}
-
-/* Level badges */
-td:nth-child(3), td:nth-child(2) {
-    font-weight: 600;
-}
-
-/* Blockquotes (used for reasoning) */
-blockquote {
-    border-left: 4px solid var(--accent);
-    background: var(--accent-light);
-    padding: 12px 20px;
-    margin: 12px 0 16px;
-    border-radius: 0 6px 6px 0;
+em {
+    color: var(--hs-text-secondary);
     font-style: italic;
-    color: var(--text-secondary);
 }
 
-/* Compact sub-dimension scores line */
-p:last-of-type {
-    font-size: 0.9em;
+/* Overall score highlight — class injected by Python post-processing */
+p.score-highlight {
+    font-size: 1.15em;
+    font-family: var(--hs-font-heading);
+    font-weight: 600;
+    background: var(--hs-primary-soft);
+    border-left: 5px solid var(--hs-primary);
+    padding: 0.6em 1em;
+    border-radius: 0 0.4rem 0.4rem 0;
+    margin: 1em 0;
 }
 
-/* Lists */
+/* ── Lists ──────────────────────────────────────────────── */
+
 ul, ol {
-    margin: 8px 0 16px 24px;
+    margin: 0.4em 0 1em 0.3em;
+    padding-left: 1.3em;
 }
 
-li { margin-bottom: 6px; }
+li { margin-bottom: 0.35em; }
 
-/* Code */
+li::marker {
+    color: var(--hs-primary);
+    font-weight: 700;
+}
+
+/* ── Blockquotes ────────────────────────────────────────── */
+
+blockquote {
+    border: none;
+    border-left: 5px solid var(--hs-primary);
+    background: var(--hs-bg-cream);
+    padding: 0.9em 1.3em;
+    margin: 1.2em 0;
+    border-radius: 0 0.4rem 0.4rem 0;
+    font-style: normal;
+    font-size: 1.02em;
+    color: var(--hs-secondary);
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(26,43,76,0.05);
+}
+
+blockquote strong { color: var(--hs-primary); }
+
+/* ── Code ───────────────────────────────────────────────── */
+
 code {
-    background: #f0f0f0;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 0.9em;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: 'SF Mono', ui-monospace, Menlo, Monaco, monospace;
+    font-size: 0.88em;
+    background: var(--hs-bg-surface);
+    color: var(--hs-primary-dark);
+    padding: 0.12em 0.4em;
+    border-radius: 0.25rem;
+    border: 1px solid var(--hs-border);
 }
 
 pre {
-    background: #f5f5f5;
-    padding: 16px;
-    border-radius: 8px;
+    background: var(--hs-secondary);
+    border-radius: 0.5rem;
+    padding: 1em 1.2em;
+    border-left: 5px solid var(--hs-primary);
+    box-shadow: 0 4px 12px rgba(26,43,76,0.12);
     overflow-x: auto;
-    margin: 12px 0;
+    margin: 1em 0;
 }
 
-pre code { background: none; padding: 0; }
-
-/* Overall maturity score highlight */
-p strong:first-child {
-    display: inline;
+pre code {
+    background: transparent;
+    color: #f1efea;
+    padding: 0;
+    border: none;
+    font-size: 0.9em;
+    line-height: 1.45;
 }
 
-/* Recommendations section */
-h2:last-of-type + ol li,
-h2:last-of-type ~ ol li {
-    margin-bottom: 12px;
-    line-height: 1.6;
+/* ── Tables ─────────────────────────────────────────────── */
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.92em;
+    margin: 1em 0 1.3em;
+    background: var(--hs-bg);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(26,43,76,0.08);
+    line-height: 1.4;
 }
 
-/* Print styles */
+th {
+    background: var(--hs-secondary);
+    color: var(--hs-text-inverse);
+    font-family: var(--hs-font-heading);
+    font-weight: 600;
+    font-size: 0.82em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.55em 1em;
+    text-align: left;
+    border: none;
+}
+
+td {
+    padding: 0.45em 1em;
+    border-bottom: 1px solid var(--hs-border);
+    vertical-align: middle;
+}
+
+tr:last-child td { border-bottom: none; }
+
+tr:nth-child(even) td { background: var(--hs-bg-cream); }
+
+/* Dimension header rows in the score matrix */
+td strong { color: var(--hs-primary); }
+
+td code {
+    background: rgba(231,91,39,0.08);
+    color: var(--hs-primary-dark);
+    border-color: rgba(231,91,39,0.2);
+}
+
+/* ── Horizontal rules ───────────────────────────────────── */
+
+hr {
+    border: none;
+    border-top: 1px solid var(--hs-border);
+    margin: 2em 0;
+}
+
+/* ── Print / PDF ────────────────────────────────────────── */
+
 @media print {
     body {
         max-width: none;
-        padding: 20px;
-        background: white;
+        margin: 0;
+        padding: 0;
+        font-size: 10.5pt;
     }
-    table { box-shadow: none; }
-    h2 { page-break-after: avoid; }
-    tr { page-break-inside: avoid; }
-}
 
-/* Make the overall score stand out */
-p:has(> strong:first-child) {
-    font-size: 1.1em;
+    body::before { display: none; }
+
+    h1 { page-break-before: auto; break-before: auto; }
+    h2, h3, h4 { page-break-after: avoid; break-after: avoid; }
+
+    pre, blockquote, table { page-break-inside: avoid; break-inside: avoid; }
+
+    hr { display: none; }
+
+    a { color: var(--hs-primary); border-bottom: none; }
+
+    pre {
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        overflow-x: visible;
+    }
 }
 """
+
+
+def _inject_score_highlight(html: str) -> str:
+    """Add .score-highlight class to the overall maturity score paragraph.
+
+    Targets the paragraph that begins with <strong>Overall Maturity:
+    so print/PDF renderers that lack :has() support still style it correctly.
+    """
+    return re.sub(
+        r'(<p>)(<strong>Overall Maturity:)',
+        r'<p class="score-highlight">\2',
+        html,
+    )
 
 
 def md_to_html(md_path: Path, html_path: Path) -> None:
@@ -193,8 +319,10 @@ def md_to_html(md_path: Path, html_path: Path) -> None:
 
     html_body = markdown.markdown(
         md_text,
-        extensions=["tables", "fenced_code"],
+        extensions=["tables", "fenced_code", "attr_list"],
     )
+
+    html_body = _inject_score_highlight(html_body)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -202,6 +330,7 @@ def md_to_html(md_path: Path, html_path: Path) -> None:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Maturity Assessment Report</title>
+{_GOOGLE_FONTS_LINK}
 <style>
 {_CSS}
 </style>
